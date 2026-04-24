@@ -886,7 +886,7 @@ function show(o){
   document.getElementById('z-tot').textContent='Price to be confirmed';
   document.getElementById('order-form').style.display='none';
   document.getElementById('succ').style.display='block';
-  setTimeout(function(){document.getElementById('succ').scrollIntoView({behavior:'smooth',block:'start'})},100);
+  setTimeout(function(){var el=document.getElementById('succ');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},150);
 }
 </script>
 
