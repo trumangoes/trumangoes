@@ -861,6 +861,45 @@ function closeMobileMenu(){
   btn.querySelector('span:nth-child(3)').style.cssText = '';
 }
 
+function resetForm(){
+  // Reset quantities
+  q={bangan:0,kesar:0,rasalu:0,himayat:0};
+  dc=0;dt='pickup';
+  // Reset qty displays
+  ['bangan','rasalu','himayat','kesar'].forEach(function(t){
+    document.getElementById(t+'-qty').textContent='0';
+    var card=document.getElementById('card-'+t);
+    if(card) card.classList.remove('active');
+  });
+  // Reset form fields
+  ['firstName','lastName','email','phone','cityState'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  document.getElementById('source').value='';
+  document.getElementById('notes').value='';
+  // Reset delivery selection
+  document.getElementById('opt-pickup').classList.add('sel');
+  document.getElementById('opt-dropoff').classList.remove('sel');
+  // Reset summary
+  upd();
+  // Reset submit button
+  var btn=document.getElementById('submit-btn');
+  btn.disabled=false;
+  btn.innerHTML='🥭 Reserve My Boxes';
+  // Hide error
+  document.getElementById('error-msg').style.display='none';
+  // Show form, hide success
+  document.getElementById('order-form').style.display='block';
+  document.getElementById('succ').style.display='none';
+  // Scroll to form
+  setTimeout(function(){
+    var el=document.getElementById('order-form');
+    var top=el.getBoundingClientRect().top+window.pageYOffset-80;
+    window.scrollTo({top:top,behavior:'smooth'});
+  },100);
+}
+
 const URL='https://script.google.com/macros/s/AKfycbzmQX41tvTlC2aL1tInIBcPYkD9e7AJRFT6anObOehc8O0rG6CsTh0mRLA4p_OTq_kM4g/exec',P=56;
 let q={bangan:0,kesar:0,rasalu:0,himayat:0},dc=0,dt='pickup';
 function chg(t,d){q[t]=Math.max(0,q[t]+d);document.getElementById(t+'-qty').textContent=q[t];var card=document.getElementById('card-'+t);if(card)card.classList.toggle('active',q[t]>0);upd()}
