@@ -861,7 +861,7 @@ function closeMobileMenu(){
   btn.querySelector('span:nth-child(3)').style.cssText = '';
 }
 
-const URL='https://script.google.com/macros/s/AKfycbxXcKwgrRhVby3aIlZ3sYMG96jmFUhPz13UCGnLWPV5NYKoiIY3MyjjPRC01NHXVx8_SQ/exec',P=56;
+const URL='https://script.google.com/macros/s/AKfycbzmQX41tvTlC2aL1tInIBcPYkD9e7AJRFT6anObOehc8O0rG6CsTh0mRLA4p_OTq_kM4g/exec',P=56;
 let q={bangan:0,kesar:0,rasalu:0,himayat:0},dc=0,dt='pickup';
 function chg(t,d){q[t]=Math.max(0,q[t]+d);document.getElementById(t+'-qty').textContent=q[t];var card=document.getElementById('card-'+t);if(card)card.classList.toggle('active',q[t]>0);upd()}
 function selD(t,c){dt=t;dc=c;['pickup','dropoff'].forEach(x=>document.getElementById('opt-'+x).classList.toggle('sel',x===t));upd()}
