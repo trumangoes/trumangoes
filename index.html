@@ -31,7 +31,7 @@ html{scroll-behavior:smooth;overflow-x:hidden}body{font-family:'Outfit',sans-ser
 
 /* ── NAV ── */
 nav{position:sticky;top:0;z-index:100;background:var(--brown);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;height:68px;box-shadow:0 2px 20px rgba(0,0,0,.4);flex-wrap:wrap}
-.nav-logo{height:100px;width:100px;object-fit:contain;flex-shrink:0;}
+.nav-logo{height:88px;width:88px;object-fit:contain;flex-shrink:0;}
 .nav-links{display:flex;gap:32px;list-style:none;position:absolute;left:50%;transform:translateX(-50%)}
 .nav-links a{color:rgba(255,255,255,.95);text-decoration:none;font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;transition:color .2s}
 .nav-links a:hover{color:var(--gold-lt)}
@@ -223,6 +223,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 @media(max-width:900px){
   .nav-links,.nav-cta{display:none}
   .nav-hamburger{display:block}
+  .nav-logo{height:48px !important;width:48px !important;}
   .nav-logo{position:static;transform:none}
   
   
