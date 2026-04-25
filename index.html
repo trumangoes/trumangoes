@@ -819,7 +819,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <ul>
         <li><a href="#why-tru">Why TRU</a></li>
         <li><a href="#how-it-works">How It Works</a></li>
-        <li><a href="#order">Pre-Order</a></li>
+        <li><a href="#order" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order</a></li>
       </ul>
     </div>
     <div class="footer-col">
@@ -917,6 +917,21 @@ function show(o){
   document.getElementById('succ').style.display='block';
   setTimeout(function(){var el=document.getElementById('succ');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},150);
 }
+
+// Reset form whenever #order section is navigated to
+document.addEventListener('click', function(e){
+  var a = e.target.closest('a[href="#order"]');
+  if(a){
+    e.preventDefault();
+    resetForm();
+    setTimeout(function(){
+      var el = document.getElementById('order');
+      var top = el.getBoundingClientRect().top + window.pageYOffset - 80;
+      window.scrollTo({top:top, behavior:'smooth'});
+    }, 50);
+  }
+});
+
 </script>
 
 <!-- MOBILE MENU OVERLAY -->
