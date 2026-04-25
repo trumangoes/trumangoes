@@ -189,7 +189,7 @@ textarea{min-height:80px;resize:vertical}
 .zelle-note strong{color:var(--gold)}
 
 /* Success */
-#succ{display:none;max-width:min(560px,100%);margin:0 auto;text-align:center}
+#succ{max-width:min(560px,100%);margin:0 auto;text-align:center}
 .succ-icon{width:80px;height:80px;border-radius:50%;background:var(--green);color:var(--gold-lt);font-size:36px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px}
 .succ-title{font-family:'Cormorant Garamond',serif;font-size:40px;color:var(--brown);font-weight:300;margin-bottom:12px}
 .succ-sub{font-size:15px;color:var(--muted);line-height:1.7;margin-bottom:32px}
@@ -314,7 +314,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
     <li><a href="#why-tru">Why TRU</a></li>
     <li><a href="#how-it-works">How It Works</a></li>
   </ul>
-  <a href="#order" class="nav-cta" onclick="resetForm()">Coming Soon</a>
+  <a href="#order" class="nav-cta" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon</a>
   <button class="nav-hamburger" id="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
@@ -330,7 +330,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <h1 class="hero-h1">Farm Fresh <em>Indian</em><br>Mangoes,<br>DFW & Beyond</h1>
       <p class="hero-sub">Straight from the orchards of India to DFW — farm-fresh, naturally ripened, and bursting with flavor. No waiting, no compromise. Just mangoes the way they're meant to taste.</p>
       <div class="hero-btns">
-        <a href="#order" class="btn-primary" onclick="resetForm()">Coming Soon — Pre-Order</a>
+        <a href="#order" class="btn-primary" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon — Pre-Order</a>
         <a href="#varieties" class="btn-outline">Explore Varieties</a>
       </div>
       <div class="hero-stats">
@@ -380,7 +380,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       </a>
 
       <!-- Pre-Order -->
-      <a href="#order" onclick="resetForm()"
+      <a href="#order" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);"
          style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--green);color:#fff;padding:28px 20px;border-radius:12px;text-decoration:none;font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 4px 16px rgba(28,58,42,.3);">
         <span style="font-size:32px;">🥭</span>
         Reserve<br>Your Box
@@ -459,7 +459,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn" onclick="resetForm()">Coming Soon</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon</a>
         </div>
       </div>
     </div>
@@ -483,7 +483,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn" onclick="resetForm()">Coming Soon</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon</a>
         </div>
       </div>
     </div>
@@ -507,7 +507,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn" onclick="resetForm()">Coming Soon</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon</a>
         </div>
       </div>
     </div>
@@ -531,7 +531,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn" onclick="resetForm()">Coming Soon</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Coming Soon</a>
         </div>
       </div>
     </div>
@@ -598,7 +598,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         <div style="font-size:32px;margin-bottom:12px;">🥭</div>
         <h4 class="step-title">Pick Up Fresh Mangoes</h4>
         <p class="step-text">We coordinate a convenient DFW pickup or community drop-off. You get farm-fresh Indian mangoes delivered right to your hands!</p>
-        <a href="#order" onclick="resetForm()" style="display:inline-block;margin-top:14px;background:var(--green);color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:.06em;">PRE-ORDER NOW</a>
+        <a href="#order" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);" style="display:inline-block;margin-top:14px;background:var(--green);color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:.06em;">PRE-ORDER NOW</a>
       </div>
     </div>
   </div>
@@ -862,36 +862,30 @@ function closeMobileMenu(){
 }
 
 function resetForm(){
-  // Only reset if success screen is showing
-  var succVisible = document.getElementById('succ').style.display === 'block';
-  // Reset quantities
   q={bangan:0,kesar:0,rasalu:0,himayat:0};
   dc=0;dt='pickup';
-  // Reset qty displays
   ['bangan','rasalu','himayat','kesar'].forEach(function(t){
     document.getElementById(t+'-qty').textContent='0';
     var card=document.getElementById('card-'+t);
     if(card) card.classList.remove('active');
   });
-  // Reset form fields
   ['firstName','lastName','email','phone','cityState'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
-  document.getElementById('source').value='';
-  document.getElementById('notes').value='';
-  // Reset delivery selection
-  document.getElementById('opt-pickup').classList.add('sel');
-  document.getElementById('opt-dropoff').classList.remove('sel');
-  // Reset summary
+  var src=document.getElementById('source');
+  var notes=document.getElementById('notes');
+  if(src) src.value='';
+  if(notes) notes.value='';
+  var pickup=document.getElementById('opt-pickup');
+  var dropoff=document.getElementById('opt-dropoff');
+  if(pickup) pickup.classList.add('sel');
+  if(dropoff) dropoff.classList.remove('sel');
   upd();
-  // Reset submit button
   var btn=document.getElementById('submit-btn');
-  btn.disabled=false;
-  btn.innerHTML='🥭 Reserve My Boxes';
-  // Hide error
-  document.getElementById('error-msg').style.display='none';
-  // Show form, hide success
+  if(btn){btn.disabled=false;btn.innerHTML='🥭 Reserve My Boxes';}
+  var err=document.getElementById('error-msg');
+  if(err) err.style.display='none';
   document.getElementById('order-form').style.display='block';
   document.getElementById('succ').style.display='none';
 }
@@ -937,7 +931,7 @@ function show(o){
   <a href="#varieties" onclick="closeMobileMenu()">🥭 Our Varieties</a>
   <a href="#why-tru" onclick="closeMobileMenu()">✅ Why TRU Mangoes</a>
   <a href="#how-it-works" onclick="closeMobileMenu()">📋 How It Works</a>
-  <a href="#order" onclick="closeMobileMenu();resetForm();" style="color:var(--gold);font-weight:700;">🛒 Reserve Your Box</a>
+  <a href="#order" onclick="event.preventDefault();closeMobileMenu();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);" style="color:var(--gold);font-weight:700;">🛒 Reserve Your Box</a>
 
   <!-- Divider -->
   <div style="height:1px;background:rgba(255,255,255,.08);margin:8px 0;"></div>
