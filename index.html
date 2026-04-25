@@ -41,12 +41,12 @@ nav{position:sticky;top:0;z-index:100;background:var(--brown);display:flex;align
 .nav-hamburger span{display:block;width:24px;height:2px;background:var(--cream);margin:5px 0;transition:.3s}
 
 /* ── HERO ── */
-.hero{position:relative;min-height:90vh;max-width:100vw;background:linear-gradient(145deg,#D4780A 0%,#E09A10 40%,#C86800 100%);display:flex;align-items:center;overflow:hidden}
+.hero{position:relative;min-height:90vh;max-width:100vw;background:linear-gradient(145deg,#B86200 0%,#C87E00 40%,#A85400 100%);display:flex;align-items:center;overflow:hidden}
 .hero-bg-pattern{position:absolute;inset:0;opacity:.08;background-image:repeating-linear-gradient(45deg,rgba(42,21,0,.4) 0,rgba(42,21,0,.4) 1px,transparent 0,transparent 50%);background-size:20px 20px}
 .hero-inner{position:relative;z-index:2;max-width:min(1200px,100%);margin:0 auto;padding:80px 5vw;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
 .hero-label{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:#FFFFFF;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:12px}
 .hero-label::before{content:'';width:40px;height:1px;background:var(--gold)}
-.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(48px,6vw,84px);line-height:1.05;color:#FFFFFF;font-weight:400;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(52px,6.5vw,90px);line-height:1.05;color:#FFFFFF;font-weight:400;text-shadow:0 2px 12px rgba(0,0,0,.3)}
 .hero-h1 em{color:#1C3A2A;font-style:italic}
 .hero-sub{margin-top:24px;font-size:16px;color:#FFFFFF;line-height:1.7;max-width:min(420px,100%);text-shadow:0 1px 6px rgba(0,0,0,.2)}
 .hero-btns{margin-top:40px;display:flex;gap:16px;flex-wrap:wrap}
@@ -307,7 +307,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
-<div class="ann-bar">🥭 <span>Banganapalli Mangoes Arriving May 1st!</span> — Pre-Order Now · $59/box · DFW Texas</div>
+<div class="ann-bar">🥭 <span>Banganapalli Arriving May 1st!</span> — Pre-Order Now · $59/box · DFW Texas</div>
 
 <!-- NAV -->
 <nav>
@@ -329,9 +329,9 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
   <div class="hero-bg-pattern"></div>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-label">🚨 Now Taking Orders · Arriving May 1st</div>
+      <div class="hero-label">🔥 Now Taking Orders · Arriving May 1st</div>
       <h1 class="hero-h1">Farm Fresh <em>Indian</em><br>Mangoes,<br>DFW & Beyond</h1>
-      <p class="hero-sub">Banganapalli mangoes landing at DFW on Friday May 1st! Fresh from India, naturally ripened and bursting with flavor. Order now and get yours delivered same day or next day after customs clearance.</p>
+      <p class="hero-sub">Banganapalli mangoes landing at <strong>DFW Airport on Friday May 1st!</strong> Farm-fresh from India, naturally ripened. Delivery same day or next day after customs clearance.</p>
       <div class="hero-btns">
         <a href="#order" class="btn-primary" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now — $59/box</a>
         <a href="#varieties" class="btn-outline">Explore Varieties</a>
@@ -451,7 +451,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       </div>
       <div class="v-content">
         <div class="v-num">01</div>
-        <div style="display:inline-block;background:#E8420A;color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:8px;">🔥 AVAILABLE NOW</div>
+        <div style="display:inline-block;background:#C8200A;color:#fff;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:10px;">🔥 AVAILABLE NOW · $59/BOX</div>
         <h3 class="v-name">Banganapalli</h3>
         
         <p class="v-desc">The golden king of South Indian mangoes. Large, firm and naturally sweet with smooth fiber-free pulp that melts on your tongue. A GI-tagged variety prized for its rich aroma and clean refreshing taste.</p>
@@ -463,7 +463,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn-soon">Coming Soon</a><!--event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
         </div>
       </div>
     </div>
@@ -487,7 +487,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn-soon">Coming Soon</a><!--event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
         </div>
       </div>
     </div>
@@ -511,7 +511,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn-soon">Coming Soon</a><!--event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
         </div>
       </div>
     </div>
@@ -535,7 +535,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         </div>
         <div class="v-footer">
           
-          <a href="#order" class="v-btn-soon">Coming Soon</a><!--event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
+          <a href="#order" class="v-btn" onclick="event.preventDefault();resetForm();setTimeout(function(){var el=document.getElementById('order');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},50);">Pre-Order Now</a>
         </div>
       </div>
     </div>
@@ -615,16 +615,16 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <div class="form-header">
         <div class="sec-eyebrow" style="justify-content:center"><span>Reserve Your Mangoes</span></div>
         <h2 class="sec-title" style="text-align:center"><em>Banganapalli</em> Pre-Orders Open!</h2>
-        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px">Mangoes arriving DFW on <strong>Friday May 1st</strong>! Reserve your boxes now at <strong>$59/box</strong>. Delivery same day or next day after customs clearance.</p>
+        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px">Arriving <strong>DFW Airport May 1st</strong> · <strong>$59/box</strong> · Delivery same day or next day after customs clearance.</p>
       </div>
       <div class="form-card"><div style="background:linear-gradient(135deg,#1C3A2A,#2D6A4F);border-radius:12px;padding:24px;margin-bottom:24px;color:#fff;text-align:center;">
-          <div style="font-size:28px;margin-bottom:8px;">🥭✈️</div>
-          <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:400;margin-bottom:8px;color:#F5C842;">Banganapalli Arriving May 1st!</h3>
-          <p style="font-size:14px;opacity:.9;line-height:1.7;margin-bottom:12px;">Mangoes landing at <strong>DFW Airport on Friday May 1st</strong>. After customs clearance, delivery will be coordinated <strong>same day or next day</strong>.</p>
-          <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:12px;">
-            <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#F5C842;">$59</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Per Box</div></div>
-            <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#F5C842;">8.8 lbs</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Per Box</div></div>
-            <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:#F5C842;">8-12</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Mangoes</div></div>
+          <div style="font-size:32px;margin-bottom:8px;">🥭✈️</div>
+          <h3 style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:400;margin-bottom:8px;color:#F5C842;">Banganapalli Arriving May 1st!</h3>
+          <p style="font-size:15px;opacity:.9;line-height:1.7;margin-bottom:16px;">Mangoes landing at <strong>DFW Airport on Friday May 1st</strong>.<br>Delivery coordinated <strong>same day or next day</strong> after customs clearance.</p>
+          <div style="display:flex;justify-content:center;gap:32px;flex-wrap:wrap;">
+            <div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#F5C842;">$59</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Per Box</div></div>
+            <div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#F5C842;">8.8 lbs</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Per Box</div></div>
+            <div style="text-align:center;"><div style="font-size:26px;font-weight:700;color:#F5C842;">8–12</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;">Mangoes</div></div>
           </div>
         </div>
 
@@ -775,7 +775,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
     <div id="succ">
       <div class="succ-icon">🥭</div>
       <h2 class="succ-title">Order Received!</h2>
-      <p class="succ-sub">Order received! 🥭 You're not just a customer — you're family. Thank you for your love and support. We are truly blessed to have you!</p>
+      <p class="succ-sub">Your reservation is confirmed! We'll contact you with pricing and payment details once the season opens. Keep an eye on your email!</p>
       <div class="succ-card">
         <div class="succ-row"><span>Memo</span><span id="z-memo"></span></div>
         <div id="z-b" class="succ-row"></div>
@@ -925,7 +925,7 @@ function show(o){
   document.getElementById('z-memo').textContent=o.firstName+' '+o.lastName+' — TRU Mangoes';
   [['z-b',o.banganBoxes,'Banganapalli'],['z-k',o.kesarBoxes,'Kesar'],['z-r',o.rasaluBoxes,'Rasalu'],['z-h',o.himayatBoxes,'Himayat']].forEach(([id,n,nm])=>{const el=document.getElementById(id);if(n>0){el.innerHTML='<span>'+nm+'</span><span>'+n+' box'+(n!==1?'es':'')+'</span>'}else{el.style.display='none'}});
   document.getElementById('z-d').innerHTML='<span>Delivery ('+o.delivery+')</span><span>'+(o.deliveryCost===0?'Free':'$'+o.deliveryCost)+'</span>';
-  document.getElementById('z-tot').textContent='$'+(o.totalBoxes*59)+' ('+o.totalBoxes+' box'+(o.totalBoxes>1?'es':'')+' × $59)';
+  document.getElementById('z-tot').textContent='$'+(o.totalBoxes*59)+' ('+o.totalBoxes+' × $59)';
   document.getElementById('order-form').style.display='none';
   document.getElementById('succ').style.display='block';
   setTimeout(function(){var el=document.getElementById('succ');var top=el.getBoundingClientRect().top+window.pageYOffset-80;window.scrollTo({top:top,behavior:'smooth'});},150);
