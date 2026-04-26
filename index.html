@@ -303,6 +303,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 }
 .mobile-menu a:active,.mobile-menu a:hover{background:rgba(255,255,255,.05)}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -931,7 +932,40 @@ function submitOrder(){
   const g=tb*P+dc;
   const data={timestamp:new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}),firstName:fn,lastName:ln,email:em,phone:ph,cityState:document.getElementById('cityState').value.trim(),banganBoxes:q.bangan,kesarBoxes:q.kesar,rasaluBoxes:q.rasalu,himayatBoxes:q.himayat,totalBoxes:tb,delivery:dt,deliveryCost:dc,boxTotal:tb*P,grandTotal:g,source:document.getElementById('source').value,notes:document.getElementById('notes').value.trim()};
   const btn=document.getElementById('submit-btn');btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting...';
-  fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(()=>show(data)).catch(()=>show(data));
+  // Send to Google Sheet
+  fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(()=>{}).catch(()=>{});
+
+  // Send emails via EmailJS
+  emailjs.init('g7l486yp7oNFEeAMb');
+
+  var emailData = {
+    customer_name: data.firstName + ' ' + data.lastName,
+    customer_email: data.email,
+    customer_phone: data.phone,
+    customer_city: data.cityState || 'Not provided',
+    bangan_boxes: data.banganBoxes,
+    kesar_boxes: data.kesarBoxes,
+    rasalu_boxes: data.rasaluBoxes,
+    himayat_boxes: data.himayatBoxes,
+    total_boxes: data.totalBoxes,
+    total_amount: data.totalBoxes * 59,
+    delivery_type: data.delivery,
+    how_heard: data.source || 'Not specified',
+    notes: data.notes || 'None',
+    timestamp: data.timestamp
+  };
+
+  // Send owner notification
+  emailjs.send('service_xzp6cr8', 'template_lh0wrzs', emailData)
+    .then(function() { console.log('Owner email sent'); })
+    .catch(function(err) { console.log('Owner email error:', err); });
+
+  // Send customer confirmation
+  emailjs.send('service_xzp6cr8', 'template_bozyqgf', emailData)
+    .then(function() { console.log('Customer email sent'); })
+    .catch(function(err) { console.log('Customer email error:', err); });
+
+  show(data);
 }
 function show(o){
   document.getElementById('z-memo').textContent=o.firstName+' '+o.lastName+' — TRU Mangoes';
