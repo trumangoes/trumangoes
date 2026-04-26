@@ -956,7 +956,7 @@ function submitOrder(){
   };
 
   // Send owner notification
-  emailjs.send('service_xzp6cr8', 'template_lh0wrzs', emailData)
+  emailjs.send('service_xzp6cr8', 'template_ownernotif', emailData)
     .then(function() { console.log('Owner email sent'); })
     .catch(function(err) { console.log('Owner email error:', err); });
 
