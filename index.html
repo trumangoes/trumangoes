@@ -275,17 +275,26 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 
 
 <style>
+.mobile-menu-overlay{
+  display:none;
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.5);
+  z-index:998;
+}
 .mobile-menu{
   display:none;
   position:fixed;
   top:0;
   left:0;
-  right:0;
+  width:78%;
+  max-width:300px;
   bottom:0;
   background:#1A0C00;
   z-index:999;
   overflow-y:auto;
   flex-direction:column;
+  box-shadow:4px 0 24px rgba(0,0,0,.7);
 }
 .mobile-menu a{
   display:flex;
@@ -862,12 +871,14 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 
 <script>function toggleMobileMenu(){
   var menu = document.getElementById('mobile-menu');
+  var overlay = document.getElementById('mobile-menu-overlay');
   var btn = document.getElementById('hamburger-btn');
   var isOpen = menu.style.display === 'block';
   if(isOpen){
     closeMobileMenu();
   } else {
     menu.style.display = 'block';
+    overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
     btn.querySelector('span:nth-child(1)').style.cssText = 'transform:rotate(45deg) translate(5px,5px)';
     btn.querySelector('span:nth-child(2)').style.cssText = 'opacity:0';
@@ -876,8 +887,10 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 }
 function closeMobileMenu(){
   var menu = document.getElementById('mobile-menu');
+  var overlay = document.getElementById('mobile-menu-overlay');
   var btn = document.getElementById('hamburger-btn');
   menu.style.display = 'none';
+  overlay.style.display = 'none';
   document.body.style.overflow = '';
   btn.querySelector('span:nth-child(1)').style.cssText = '';
   btn.querySelector('span:nth-child(2)').style.cssText = '';
@@ -991,6 +1004,7 @@ document.addEventListener('click', function(e){
 </script>
 
 <!-- MOBILE MENU OVERLAY -->
+<div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="closeMobileMenu()"></div>
 <div class="mobile-menu" id="mobile-menu">
   <!-- Header with logo -->
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.1);">
