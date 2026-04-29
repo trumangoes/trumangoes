@@ -317,7 +317,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
-<div class="ann-bar">🥭 <span>Banganapalli, Rasalu &amp; Himayat Arriving May 1st!</span> — Pre-Order Now · From $55/box · DFW Texas</div>
+<div class="ann-bar">🥭 <span>Banganapalli, Rasalu &amp; Himayat</span> — Pre-Order Now · Arriving May 1st · Dallas Texas</div>
 
 <!-- NAV -->
 <nav>
@@ -922,11 +922,11 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
   var menu = document.getElementById('mobile-menu');
   var overlay = document.getElementById('mobile-menu-overlay');
   var btn = document.getElementById('hamburger-btn');
-  var isOpen = menu.style.display === 'block';
+  var isOpen = menu.style.display === 'flex';
   if(isOpen){
     closeMobileMenu();
   } else {
-    menu.style.display = 'block';
+    menu.style.display = 'flex';
     overlay.style.display = 'block';
     document.body.style.overflow = 'hidden';
     btn.querySelector('span:nth-child(1)').style.cssText = 'transform:rotate(45deg) translate(5px,5px)';
