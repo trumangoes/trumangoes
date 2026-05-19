@@ -25,6 +25,16 @@
 }
 html{scroll-behavior:smooth;overflow-x:hidden}body{font-family:'Outfit',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden}
 
+/* ── PRE-ORDER NOTICE BANNER (BIG, PROMINENT) ── */
+.preorder-notice{background:linear-gradient(135deg,#B91C1C 0%,#DC2626 50%,#B91C1C 100%);color:#FFFFFF;text-align:center;padding:18px 16px;position:relative;overflow:hidden;border-bottom:3px solid var(--gold)}
+.preorder-notice::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.04) 0,rgba(255,255,255,.04) 10px,transparent 10px,transparent 20px);pointer-events:none}
+.preorder-notice-inner{position:relative;z-index:2;max-width:1100px;margin:0 auto}
+.preorder-notice-headline{font-family:'Cormorant Garamond',serif;font-size:clamp(24px,3.2vw,38px);font-weight:700;line-height:1.15;letter-spacing:.02em;text-shadow:0 2px 8px rgba(0,0,0,.25);margin-bottom:6px}
+.preorder-notice-headline .stop{font-size:1.1em;color:#FFE4B5;display:inline-block;margin-right:8px;vertical-align:-2px}
+.preorder-notice-date{display:inline-block;background:var(--gold);color:#1A0A00;padding:6px 18px;border-radius:6px;font-size:clamp(15px,1.7vw,20px);font-weight:700;letter-spacing:.04em;margin:8px 4px;text-transform:uppercase;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.preorder-notice-sub{font-size:clamp(13px,1.4vw,16px);font-weight:500;line-height:1.5;margin-top:10px;opacity:.95;max-width:780px;margin-left:auto;margin-right:auto}
+.preorder-notice-sub strong{color:#FFE4B5;font-weight:700}
+
 /* ── ANNOUNCEMENT BAR ── */
 .ann-bar{background:var(--green);color:var(--cream);text-align:center;padding:12px 16px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;line-height:1.6}
 .ann-bar span{color:var(--gold-lt)}
@@ -218,7 +228,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 @media(max-width:900px){
   *{max-width:100%}
   img{max-width:100%;height:auto}
-  section,nav,footer,.ann-bar,.trust-bar{max-width:100vw;overflow-x:hidden}
+  section,nav,footer,.ann-bar,.preorder-notice,.trust-bar{max-width:100vw;overflow-x:hidden}
 }
 @media(max-width:900px){
   .nav-links,.nav-cta{display:none}
@@ -316,12 +326,28 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 </head>
 <body>
 
+<!-- PRE-ORDER NOTICE (BIG, PROMINENT) -->
+<div class="preorder-notice">
+  <div class="preorder-notice-inner">
+    <div class="preorder-notice-headline">
+      <span class="stop">⏳</span>PRE-ORDERS NOT YET OPEN
+    </div>
+    <div>
+      <span class="preorder-notice-date">📅 Opens Saturday, May 23rd</span>
+      <span class="preorder-notice-date">🚚 For May 29th Batch</span>
+    </div>
+    <div class="preorder-notice-sub">
+      🙏 <strong>Please bear with us</strong> — we're getting everything ready for our biggest batch yet! Pre-order will go live <strong>right here on this site</strong> on Saturday, May 23rd. Bookmark this page and join our WhatsApp group below for instant notification. 🥭
+    </div>
+  </div>
+</div>
+
 <!-- ANNOUNCEMENT BAR -->
-<div class="ann-bar">🎉 <span>Thank You!</span> · SOLD OUT — Incredible Response · Next Batch Announcement Coming Soon</div>
+<div class="ann-bar">🎉 <span>Thank You!</span> · SOLD OUT — Incredible Response · Next Batch Arriving May 28 & 29</div>
 
 <!-- NAV -->
 <nav>
-  <a href="#pre-order" class="nav-cta">Join Waitlist</a>
+  <a href="https://chat.whatsapp.com/CUPFPvN3Du04kKiVKm0dVH" target="_blank" class="nav-cta">Notify Me May 23</a>
   <ul class="nav-links" id="nav-menu">
     <li><a href="#varieties">Varieties</a></li>
     <li><a href="#why-tru">Why TRU</a></li>
@@ -339,9 +365,9 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
   <div class="hero-bg-pattern"></div>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-label">🎉 SOLD OUT · Thank You for the Incredible Response · Next Batch Announcement Coming Soon</div>
+      <div class="hero-label">⏳ PRE-ORDER OPENS MAY 23rd · MAY 29th BATCH · LARGER THAN EVER</div>
       <h1 class="hero-h1">Farm Fresh <em>Indian</em><br>Mangoes,<br>Dallas & Beyond</h1>
-      <p class="hero-sub">🎉 Thank you for the <strong>overwhelming response</strong>! Our entire May 2026 batch is now <strong>SOLD OUT</strong> and being distributed to all our wonderful customers. We are humbled by the love and support from the Dallas community. Stay tuned for our <strong>next batch announcement</strong> — join our WhatsApp group below to be the first to know!</p>
+      <p class="hero-sub">🙏 Thank you for the <strong>overwhelming response</strong>! Our last batch sold out in hours. The next batch is arriving <strong>May 28 & 29</strong> — larger than all previous batches combined, featuring <strong>Banganapalli, Rasalu, Himayat, and Kesar</strong> (subject to availability). <strong>Pre-order opens Saturday, May 23rd</strong> right here on this site. Join WhatsApp below for the instant drop notification!</p>
       <div class="hero-btns">
         <a href="https://chat.whatsapp.com/CUPFPvN3Du04kKiVKm0dVH" target="_blank" class="btn-primary">Join WhatsApp for Next Batch Updates</a>
         <a href="#varieties" class="btn-outline">Explore Varieties</a>
