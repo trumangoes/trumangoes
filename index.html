@@ -698,8 +698,23 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
           <div class="form-group"><label>Phone *</label><input type="tel" id="phone" placeholder="" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>City *</label><input type="text" id="city" placeholder="e.g. Frisco" required></div>
-          <div class="form-group"><label>State *</label><input type="text" id="state" placeholder="e.g. TX" required></div>
+          <div class="form-group">
+            <label>City *</label>
+            <select id="city" required style="width:100%;padding:14px 14px;border:1.5px solid rgba(42,21,0,.15);border-radius:10px;font-size:15px;background:#fff;color:var(--brown);font-family:inherit;cursor:pointer;">
+              <option value="">— Select your city —</option>
+              <option value="Irving/Coppell">Irving / Coppell</option>
+              <option value="Plano">Plano</option>
+              <option value="Frisco">Frisco</option>
+              <option value="Celina/Prosper">Celina / Prosper</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>State *</label>
+            <input type="text" id="state" value="TX" readonly required style="background:#f5f0e6;color:#5A2800;cursor:not-allowed;font-weight:600;">
+          </div>
+        </div>
+        <div style="background:#FFF8EC;border-left:3px solid #C8780A;border-radius:4px;padding:10px 14px;margin:-6px 0 16px;font-size:12px;color:#5A2800;line-height:1.5;">
+          🚚 <strong>We only deliver to these 4 cities for the 2026 season.</strong> Live elsewhere? Join our <a href="https://chat.whatsapp.com/CUPFPvN3Du04kKiVKm0dVH" target="_blank" style="color:#5A2800;text-decoration:underline;">WhatsApp group</a> to request expansion next year.
         </div>
 
         <div class="form-section-title" style="margin-top:32px">🥭 Select Your Varieties</div>
