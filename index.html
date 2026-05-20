@@ -685,9 +685,10 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
             </select>
           </div>
           <div class="form-group"><label>State *</label>
-            <input type="text" id="state" value="TX" readonly tabindex="-1"
-              style="background:#f0f0f0;color:#666;cursor:not-allowed;"
-              title="We currently serve the Dallas, TX metro area only.">
+            <select id="state" required style="background:#f0f0f0;color:#666;cursor:not-allowed;pointer-events:none;"
+              title="We currently serve the Dallas, TX metro area only." onfocus="this.blur()">
+              <option value="TX" selected>Texas (TX)</option>
+            </select>
           </div>
         </div>
 
@@ -1199,7 +1200,12 @@ function applySoldOutState(){
   });
   upd();
 }
-document.addEventListener('DOMContentLoaded', applySoldOutState);
+document.addEventListener('DOMContentLoaded', function(){
+  applySoldOutState();
+  // Safety net: ensure State stays as TX even if browser autofill or extensions interfere
+  var stateEl = document.getElementById('state');
+  if (stateEl) { stateEl.value = 'TX'; }
+});
 
 </script>
 
