@@ -1079,6 +1079,7 @@ function submitOrder(){
   emailjs.init('g7l486yp7oNFEeAMb');
 
   var emailData = {
+    // Customer info
     customer_name: data.firstName + ' ' + data.lastName,
     customer_email: data.email,
     customer_phone: data.phone,
@@ -1086,13 +1087,36 @@ function submitOrder(){
     customer_city_only: data.city || 'Not provided',
     customer_state: data.state || 'Not provided',
     pickup_location: data.pickupLocation || 'Not selected',
-    bangan_boxes: data.banganBoxes,
-    kesar_boxes: data.kesarBoxes,
-    rasalu_boxes: data.rasaluBoxes,
-    himayat_boxes: data.himayatBoxes,
+
+    // Per-variety: name, count, unit price, line total
+    // EmailJS templates use {{#if bangan_boxes}}…{{/if}} to hide zero-qty rows
+    bangan_name: 'Banganapalli',
+    bangan_boxes: data.banganBoxes || 0,
+    bangan_price: PRICES.bangan,
+    bangan_line_total: (data.banganBoxes || 0) * PRICES.bangan,
+
+    kesar_name: 'Kesar',
+    kesar_boxes: data.kesarBoxes || 0,
+    kesar_price: PRICES.kesar,
+    kesar_line_total: (data.kesarBoxes || 0) * PRICES.kesar,
+
+    rasalu_name: 'Pedda Rasalu',
+    rasalu_boxes: data.rasaluBoxes || 0,
+    rasalu_price: PRICES.rasalu,
+    rasalu_line_total: (data.rasaluBoxes || 0) * PRICES.rasalu,
+
+    himayat_name: 'Himayat',
+    himayat_boxes: data.himayatBoxes || 0,
+    himayat_price: PRICES.himayat,
+    himayat_line_total: (data.himayatBoxes || 0) * PRICES.himayat,
+
+    // Totals
     total_boxes: data.totalBoxes,
     total_amount: data.boxTotal,
+    grand_total: data.boxTotal,
     delivery_type: data.delivery,
+
+    // Meta
     how_heard: data.source || 'Not specified',
     notes: data.notes || 'None',
     timestamp: data.timestamp,
