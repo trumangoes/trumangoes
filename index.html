@@ -1037,7 +1037,7 @@ function resetForm(){
   document.getElementById('succ').style.display='none';
 }
 
-const URL='https://script.google.com/macros/s/AKfycbzmQX41tvTlC2aL1tInIBcPYkD9e7AJRFT6anObOehc8O0rG6CsTh0mRLA4p_OTq_kM4g/exec',PRICES={bangan:47,kesar:55,rasalu:52,himayat:55};
+const URL='https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec',PRICES={bangan:47,kesar:55,rasalu:52,himayat:55};
 // SOLD_OUT: flip a variety to true when its running pre-order count in the Google Sheet hits LIMIT_PER_BATCH.
 // Kesar is permanently true for this batch (not in this shipment).
 const LIMIT_PER_BATCH=50;
@@ -1155,15 +1155,9 @@ function sendEmails_(data, orderId) {
     payment_deadline: 'as soon as possible'
   };
 
-  // Send owner notification
-  emailjs.send('service_xzp6cr8', 'template_ownernotif', emailData)
-    .then(function() { console.log('Owner email sent'); })
-    .catch(function(err) { console.log('Owner email error:', err); });
-
-  // Send customer confirmation
-  emailjs.send('service_xzp6cr8', 'template_bozyqgf', emailData)
-    .then(function() { console.log('Customer email sent'); })
-    .catch(function(err) { console.log('Customer email error:', err); });
+  // Emails are sent server-side by Apps Script (no EmailJS needed).
+  // emailData kept here for reference / future use but no longer triggered from browser.
+  void emailData;
 
   show(data, orderId);
 }
