@@ -435,7 +435,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 
     <!-- Pickup placeholder -->
     <div style="margin-top:20px;border:2px dashed rgba(42,21,0,.15);border-radius:12px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">
-      📍 <strong>Pickup Locations</strong> — Available in <strong>Irving/Coppell</strong>, <strong>Plano</strong>, <strong>Frisco</strong>, and <strong>Celina/Prosper</strong>. Exact pickup time &amp; spot for your area is shared after we confirm your order.
+      📍 <strong>Pickup Locations</strong> — Available in <strong>Irving/Coppell</strong>, <strong>Plano</strong>, <strong>Frisco</strong>, and <strong>Prosper/Celina</strong>. Exact pickup time &amp; spot for your area is shared after we confirm your order.
     </div>
   </div>
 </section>
@@ -635,7 +635,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
         <div class="step-circle">3</div>
         <div style="font-size:32px;margin-bottom:12px;">🥭</div>
         <h4 class="step-title">Pick Up Fresh Mangoes</h4>
-        <p class="step-text">We coordinate a convenient local pickup in Irving/Coppell, Plano, Frisco, or Celina/Prosper. You get farm-fresh Indian mangoes right when they arrive!</p>
+        <p class="step-text">We coordinate a convenient local pickup in Irving/Coppell, Plano, Frisco, or Prosper/Celina. You get farm-fresh Indian mangoes right when they arrive!</p>
         <a href="#pre-order" style="display:inline-block;margin-top:14px;background:var(--gold);color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:.06em;">RESERVE NOW</a>
       </div>
     </div>
@@ -809,7 +809,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
             <option value="Irving/Coppell">Irving / Coppell</option>
             <option value="Plano">Plano</option>
             <option value="Frisco">Frisco</option>
-            <option value="Celina/Prosper">Celina / Prosper</option>
+            <option value="Prosper/Celina">Prosper / Celina</option>
           </select>
         </div>
         <div style="background:#FFF8EC;border-left:3px solid #C8780A;border-radius:4px;padding:12px 16px;margin:8px 0 16px;font-size:13px;color:#5A2800;line-height:1.7;">
@@ -854,7 +854,6 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <h2 class="succ-title">Order Received!</h2>
       <p class="succ-sub">Thank you! 🥭 To lock in your reservation, please follow the two steps below — <strong>pay as soon as you can</strong> to secure your boxes.</p>
       <div class="succ-card">
-        <div class="succ-row"><span>Memo</span><span id="z-memo"></span></div>
         <div id="z-b" class="succ-row"></div>
         <div id="z-k" class="succ-row"></div>
         <div id="z-r" class="succ-row"></div>
@@ -874,7 +873,15 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
           <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Send Zelle payment to:</div>
           <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--brown);font-weight:700;letter-spacing:.5px;">972-654-9231</div>
           <div style="font-size:14px;color:var(--brown);margin-top:6px;"><strong>Recipient name:</strong> VSVV International</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;font-style:italic;">Note: please send to "VSVV International" (without LLC) — some banks block Zelle payments to LLC entities. In the Zelle memo, please include your name so we can match the payment to your order.</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;font-style:italic;">Note: please send to "VSVV International" (without LLC) — some banks block Zelle payments to LLC entities.</div>
+        </div>
+
+        <div style="background:#FFF4D6;border:2px solid #C8973A;border-radius:8px;padding:14px 16px;margin-top:14px;">
+          <div style="font-size:14px;font-weight:700;color:#5A2800;margin-bottom:8px;">⚠️ IMPORTANT — Include This in Your Zelle Memo / Note</div>
+          <div style="background:#fff;border-radius:6px;padding:10px 12px;font-family:'Courier New',monospace;font-size:14px;color:#5A2800;border:1px dashed #C8973A;margin-bottom:10px;" id="z-memo"></div>
+          <div style="font-size:13px;color:#5A2800;line-height:1.7;margin:0;">
+            <strong>Why this matters:</strong> We use this to match your payment to your order. <strong>Especially important if someone else (spouse, family member, friend) is sending the payment for you</strong> — without the order number in the memo, we have no way to know who the payment belongs to and your reservation may be delayed.
+          </div>
         </div>
       </div>
 
@@ -970,7 +977,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
     <h2 style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#2A1500;margin-bottom:16px;">Terms &amp; Conditions</h2>
     <p style="font-size:14px;color:#555;line-height:1.75;margin-bottom:12px;"><strong>Pre-Orders:</strong> All orders are reservations only and not confirmed until payment is received. Availability is subject to harvest conditions and USDA import clearance.</p>
     <p style="font-size:14px;color:#555;line-height:1.75;margin-bottom:12px;"><strong>Pricing:</strong> Prices are per box and may vary between seasons. The price at time of confirmed payment is the final price for that order.</p>
-    <p style="font-size:14px;color:#555;line-height:1.75;margin-bottom:12px;"><strong>Pickup &amp; Delivery:</strong> Mangoes are distributed through community pickup points in Irving/Coppell, Plano, Frisco, and Celina/Prosper. Exact locations and times are shared after confirmation. TRU Mangoes is not liable for delays caused by customs or shipping beyond our control.</p>
+    <p style="font-size:14px;color:#555;line-height:1.75;margin-bottom:12px;"><strong>Pickup &amp; Delivery:</strong> Mangoes are distributed through community pickup points in Irving/Coppell, Plano, Frisco, and Prosper/Celina. Exact locations and times are shared after confirmation. TRU Mangoes is not liable for delays caused by customs or shipping beyond our control.</p>
     <p style="font-size:14px;color:#555;line-height:1.75;"><strong>Site Use:</strong> All content on this site belongs to TRU Mangoes and may not be reproduced without permission.</p>
   </div>
 </div>
@@ -1085,43 +1092,70 @@ function submitOrder(){
   const g=boxTotal+0;
   const data={timestamp:new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}),firstName:fn,lastName:ln,email:em,phone:ph,city:cy,state:st,cityState:cy+', '+st,pickupLocation:pl,banganBoxes:q.bangan,kesarBoxes:q.kesar,rasaluBoxes:q.rasalu,himayatBoxes:q.himayat,totalBoxes:tb,delivery:'Pickup - '+pl,deliveryCost:0,boxTotal:boxTotal,grandTotal:g,source:document.getElementById('source').value,notes:document.getElementById('notes').value.trim()};
   const btn=document.getElementById('submit-btn');btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting...';
-  // Send to Google Sheet
-  fetch(URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(()=>{}).catch(()=>{});
 
+  // POST to Apps Script webhook with text/plain to avoid CORS preflight
+  // (Apps Script reads e.postData.contents regardless of Content-Type)
+  // Read response to capture the assigned Order ID for the customer email.
+  fetch(URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(data)
+  })
+  .then(function(resp){ return resp.json(); })
+  .then(function(result){
+    var orderId = (result && result.orderId) ? result.orderId : ('TM-' + Date.now().toString().slice(-6));
+    sendEmails_(data, orderId);
+  })
+  .catch(function(err){
+    console.log('Webhook error:', err);
+    var fallbackId = 'TM-' + Date.now().toString().slice(-6);
+    sendEmails_(data, fallbackId);
+  });
+}
+
+function sendEmails_(data, orderId) {
   // Send emails via EmailJS
   emailjs.init('g7l486yp7oNFEeAMb');
 
+  // Build variety breakdown lines (HTML for emails, plain text fallback)
+  var varietyList = [
+    { name: 'Banganapalli', qty: data.banganBoxes || 0, price: PRICES.bangan },
+    { name: 'Rasalu',       qty: data.rasaluBoxes || 0, price: PRICES.rasalu },
+    { name: 'Himayat',      qty: data.himayatBoxes || 0, price: PRICES.himayat },
+    { name: 'Kesar',        qty: data.kesarBoxes || 0, price: PRICES.kesar }
+  ].filter(function(v){ return v.qty > 0; });
+
+  var itemsHtml = varietyList.map(function(v) {
+    var lt = v.qty * v.price;
+    return '<tr>' +
+      '<td style="padding:10px;border-bottom:1px solid #eee;">' + v.name + '</td>' +
+      '<td style="padding:10px;border-bottom:1px solid #eee;text-align:center;">' + v.qty + ' box' + (v.qty > 1 ? 'es' : '') + '</td>' +
+      '<td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">$' + v.price + '</td>' +
+      '<td style="padding:10px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$' + lt + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var itemsText = varietyList.map(function(v) {
+    var lt = v.qty * v.price;
+    return '  - ' + v.name + ': ' + v.qty + ' box' + (v.qty > 1 ? 'es' : '') + ' x $' + v.price + ' = $' + lt;
+  }).join('\n');
+
   var emailData = {
+    // Order ID (assigned by Apps Script)
+    order_id: orderId,
+
     // Customer info
     customer_name: data.firstName + ' ' + data.lastName,
     customer_email: data.email,
     customer_phone: data.phone,
     customer_city: data.cityState || 'Not provided',
     customer_city_only: data.city || 'Not provided',
-    customer_state: data.state || 'Not provided',
+    customer_state: data.state || 'TX',
     pickup_location: data.pickupLocation || 'Not selected',
 
-    // Per-variety: name, count, unit price, line total
-    // EmailJS templates use {{#if bangan_boxes}}…{{/if}} to hide zero-qty rows
-    bangan_name: 'Banganapalli',
-    bangan_boxes: data.banganBoxes || 0,
-    bangan_price: PRICES.bangan,
-    bangan_line_total: (data.banganBoxes || 0) * PRICES.bangan,
-
-    kesar_name: 'Kesar',
-    kesar_boxes: data.kesarBoxes || 0,
-    kesar_price: PRICES.kesar,
-    kesar_line_total: (data.kesarBoxes || 0) * PRICES.kesar,
-
-    rasalu_name: 'Rasalu',
-    rasalu_boxes: data.rasaluBoxes || 0,
-    rasalu_price: PRICES.rasalu,
-    rasalu_line_total: (data.rasaluBoxes || 0) * PRICES.rasalu,
-
-    himayat_name: 'Himayat',
-    himayat_boxes: data.himayatBoxes || 0,
-    himayat_price: PRICES.himayat,
-    himayat_line_total: (data.himayatBoxes || 0) * PRICES.himayat,
+    // Pre-built variety breakdown (use {{{order_items_html}}} in template for HTML)
+    order_items_html: itemsHtml,
+    order_items_text: itemsText,
 
     // Totals
     total_boxes: data.totalBoxes,
@@ -1149,10 +1183,26 @@ function submitOrder(){
     .then(function() { console.log('Customer email sent'); })
     .catch(function(err) { console.log('Customer email error:', err); });
 
-  show(data);
+  show(data, orderId);
 }
-function show(o){
-  document.getElementById('z-memo').textContent=o.firstName+' '+o.lastName+' — TRU Mangoes';
+function show(o, orderId){
+  var idBadge = document.getElementById('z-orderid');
+  if (idBadge) {
+    idBadge.textContent = 'Order #' + orderId;
+  } else {
+    var succ = document.getElementById('succ');
+    if (succ) {
+      var badge = document.createElement('div');
+      badge.id = 'z-orderid';
+      badge.style.cssText = "display:inline-block;background:#1F4A2C;color:#F5C842;padding:10px 22px;border-radius:30px;font-size:18px;font-weight:700;letter-spacing:.05em;margin:0 auto 16px auto;font-family:'Cormorant Garamond',serif;";
+      badge.textContent = 'Order #' + orderId;
+      var wrap = document.createElement('div');
+      wrap.style.textAlign = 'center';
+      wrap.appendChild(badge);
+      succ.insertBefore(wrap, succ.firstChild);
+    }
+  }
+  document.getElementById('z-memo').textContent = 'Order #' + orderId + ' — ' + o.firstName + ' ' + o.lastName;
   [['z-b',o.banganBoxes,'Banganapalli'],['z-k',o.kesarBoxes,'Kesar'],['z-r',o.rasaluBoxes,'Rasalu'],['z-h',o.himayatBoxes,'Himayat']].forEach(([id,n,nm])=>{const el=document.getElementById(id);if(n>0){el.innerHTML='<span>'+nm+'</span><span>'+n+' box'+(n!==1?'es':'')+'</span>'}else{el.style.display='none'}});
   document.getElementById('z-d').innerHTML='<span>Pickup Area</span><span>'+(o.pickupLocation||'TBD')+'</span>';
   var zpa=document.getElementById('z-pickup-area');
