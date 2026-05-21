@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>TRU Mangoes Admin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f7f4ec;color:#2a1500;min-height:100vh}
+  /* LOGIN */
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:#fff;border-radius:12px;padding:32px;max-width:400px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}
+  .login-card h1{font-family:Georgia,serif;color:#1F4A2C;font-size:28px;margin-bottom:6px}
+  .login-card .sub{color:#888;font-size:14px;margin-bottom:24px}
+  .login-card input{width:100%;padding:14px;border:1.5px solid #e6dfd0;border-radius:8px;font-size:16px;margin-bottom:12px;background:#FBF6ED}
+  .login-card input:focus{outline:none;border-color:#1F4A2C}
+  .login-card button{width:100%;padding:14px;background:#1F4A2C;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;margin-top:8px}
+  .login-card button:hover{background:#2E6B3F}
+  .login-card .err{color:#a02020;font-size:14px;margin-top:10px;min-height:20px}
+  .badge-role{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .badge-admin{background:#F5C842;color:#1F4A2C}
+  .badge-partner{background:#dcedc8;color:#33691E}
+  /* APP */
+  .topbar{background:#1F4A2C;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.1);position:sticky;top:0;z-index:10}
+  .topbar-title{font-family:Georgia,serif;font-size:22px;color:#F5C842}
+  .topbar-actions{display:flex;gap:12px;align-items:center}
+  .topbar-actions a{color:#fff;text-decoration:none;font-size:14px;cursor:pointer}
+  .topbar-actions a:hover{color:#F5C842}
+  .tabs{background:#fff;border-bottom:1px solid #e6dfd0;padding:0 20px;display:flex;gap:0;overflow-x:auto;position:sticky;top:60px;z-index:9}
+  .tabs button{background:none;border:none;padding:14px 20px;font-size:14px;font-weight:600;color:#888;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .tabs button.active{color:#1F4A2C;border-bottom-color:#C8973A}
+  .tabs button:hover{color:#1F4A2C}
+  .badge-count{display:inline-block;background:#a02020;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:6px;font-weight:700}
+  .badge-count.zero{background:#bbb}
+  /* CONTENT */
+  .content{padding:20px;max-width:1200px;margin:0 auto}
+  .panel{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .panel h2{font-family:Georgia,serif;color:#1F4A2C;font-size:20px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #C8973A}
+  /* DASHBOARD */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .stat-card{background:linear-gradient(135deg,#FBF6ED,#fff);border:1px solid #e6dfd0;border-radius:10px;padding:16px}
+  .stat-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .stat-value{font-family:Georgia,serif;font-size:32px;color:#1F4A2C;font-weight:600;line-height:1}
+  .stat-sub{font-size:12px;color:#888;margin-top:6px}
+  .stat-card.alert{background:linear-gradient(135deg,#fef0e0,#fff);border-color:#C8973A}
+  .stat-card.success{background:linear-gradient(135deg,#e8f5e9,#fff);border-color:#2D6B4D}
+  /* TABLE */
+  .search-box{width:100%;padding:10px 14px;border:1.5px solid #e6dfd0;border-radius:6px;font-size:14px;margin-bottom:12px;background:#FBF6ED}
+  .data-table{width:100%;border-collapse:collapse;font-size:13px}
+  .data-table th{background:#f7f4ec;color:#6b5b40;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px 8px;text-align:left;font-weight:700;border-bottom:2px solid #e6dfd0}
+  .data-table td{padding:10px 8px;border-bottom:1px solid #f0e9d8;vertical-align:top}
+  .data-table tr:hover{background:#FBF6ED}
+  .order-id{font-family:Georgia,serif;font-weight:700;color:#1F4A2C}
+  .status-pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.04em}
+  .status-paid{background:#c8e6c9;color:#1B5E20}
+  .status-pending{background:#fff9c4;color:#A06A00}
+  .status-picked{background:#bbdefb;color:#0D47A1}
+  .status-awaiting{background:#ffe0b2;color:#7C4400}
+  .btn{display:inline-block;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:none;text-decoration:none}
+  .btn-primary{background:#1F4A2C;color:#fff}
+  .btn-primary:hover{background:#2E6B3F}
+  .btn-warn{background:#C8973A;color:#fff}
+  .btn-warn:hover{background:#a37725}
+  .btn-disabled{background:#cfd8dc;color:#37474f;cursor:not-allowed;font-style:italic}
+  .btn-override{background:#fff;color:#a02020;border:1px solid #a02020}
+  .btn-override:hover{background:#a02020;color:#fff}
+  /* TOAST */
+  .toast{position:fixed;bottom:20px;right:20px;background:#1F4A2C;color:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);display:none;z-index:100;font-size:14px;max-width:320px}
+  .toast.show{display:block;animation:slideIn .3s}
+  .toast.error{background:#a02020}
+  @keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+  /* LOADING */
+  .loading{text-align:center;padding:40px;color:#888;font-style:italic}
+  .empty{text-align:center;padding:40px;color:#888}
+  /* RESPONSIVE */
+  @media(max-width:600px){
+    .topbar{padding:12px 14px}
+    .topbar-title{font-size:18px}
+    .tabs{padding:0 10px}
+    .tabs button{padding:12px 14px;font-size:13px}
+    .content{padding:14px}
+    .panel{padding:14px}
+    .data-table{font-size:12px}
+    .data-table th,.data-table td{padding:8px 5px}
+    .stat-value{font-size:24px}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <h1>🥭 TRU Mangoes Admin</h1>
+    <div class="sub">Enter your access password</div>
+    <input type="password" id="pw-input" placeholder="Password" autofocus>
+    <button onclick="login()">Sign In</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">🥭 TRU Mangoes Admin</div>
+    <div class="topbar-actions">
+      <span id="role-badge" class="badge-role badge-admin">ADMIN</span>
+      <a onclick="refreshAll()">🔄 Refresh</a>
+      <a onclick="logout()">Sign Out</a>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="active" onclick="showTab('dashboard')">📊 Dashboard</button>
+    <button onclick="showTab('pending')">💰 Pending Payments <span id="cnt-pending" class="badge-count zero">0</span></button>
+    <button onclick="showTab('pickups')">📦 Today's Pickups <span id="cnt-pickups" class="badge-count zero">0</span></button>
+    <button onclick="showTab('orders')">📋 All Orders <span id="cnt-orders" class="badge-count zero">0</span></button>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content">
+      <div class="panel">
+        <h2>📊 Overview</h2>
+        <div id="dashboard-stats" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>🥭 By Variety</h2>
+        <div id="dashboard-varieties" class="loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- PENDING PAYMENTS -->
+    <div id="tab-pending" class="tab-content" style="display:none">
+      <div class="panel">
+        <h2>💰 Pending Payments</h2>
+        <input type="text" class="search-box" placeholder="Search by name, order #, phone…" oninput="filterTable('pending',this.value)">
+        <div id="pending-list" class="loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- PICKUPS -->
+    <div id="tab-pickups" class="tab-content" style="display:none">
+      <div class="panel">
+        <h2>📦 Today's Pickups (Paid &amp; Awaiting)</h2>
+        <input type="text" class="search-box" placeholder="Search by name, order #, phone…" oninput="filterTable('pickups',this.value)">
+        <div id="pickups-list" class="loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ALL ORDERS -->
+    <div id="tab-orders" class="tab-content" style="display:none">
+      <div class="panel">
+        <h2>📋 All Orders</h2>
+        <input type="text" class="search-box" placeholder="Search by name, order #, phone, email…" oninput="filterTable('orders',this.value)">
+        <div id="orders-list" class="loading">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ⚠️ IMPORTANT: Replace this with your current Apps Script Web App URL.
+// Same URL that's already in index.html.
+const API_URL = 'https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec';
+
+let userRole = null;
+let userPw = null;
+let cachedData = {pending:[], pickups:[], orders:[]};
+
+// ============ LOGIN ============
+async function login() {
+  const pw = document.getElementById('pw-input').value.trim();
+  if (!pw) return;
+  document.getElementById('login-err').textContent = 'Verifying…';
+  try {
+    const res = await fetch(API_URL + '?action=verify&pw=' + encodeURIComponent(pw));
+    const data = await res.json();
+    if (data.status === 'ok') {
+      userRole = data.role;
+      userPw = pw;
+      localStorage.setItem('tru_admin_pw', pw);
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      const badge = document.getElementById('role-badge');
+      if (userRole === 'admin') {
+        badge.className = 'badge-role badge-admin';
+        badge.textContent = 'ADMIN';
+      } else {
+        badge.className = 'badge-role badge-partner';
+        badge.textContent = 'PARTNER';
+      }
+      refreshAll();
+    } else {
+      document.getElementById('login-err').textContent = '❌ Wrong password — try again';
+    }
+  } catch (err) {
+    document.getElementById('login-err').textContent = '❌ Connection error: ' + err.message;
+  }
+}
+
+document.getElementById('pw-input').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
+
+function logout() {
+  localStorage.removeItem('tru_admin_pw');
+  location.reload();
+}
+
+// Auto-login if saved
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('tru_admin_pw');
+  if (saved) { document.getElementById('pw-input').value = saved; login(); }
+});
+
+// ============ TABS ============
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = 'block';
+  event.target.classList.add('active');
+}
+
+// ============ DATA LOADING ============
+async function api(action, params = {}) {
+  let url = API_URL + '?action=' + action + '&pw=' + encodeURIComponent(userPw);
+  for (let k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function refreshAll() {
+  toast('Refreshing data…');
+  await Promise.all([loadDashboard(), loadPending(), loadPickups(), loadOrders()]);
+  toast('✓ Data refreshed');
+}
+
+// ============ DASHBOARD ============
+async function loadDashboard() {
+  const el = document.getElementById('dashboard-stats');
+  const elV = document.getElementById('dashboard-varieties');
+  try {
+    const r = await api('dashboard');
+    if (r.status !== 'ok') { el.innerHTML = '<div class="empty">Error: ' + r.message + '</div>'; return; }
+    const d = r.data;
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${d.totalOrders}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Boxes</div><div class="stat-value">${d.totalBoxes}</div></div>
+        <div class="stat-card success"><div class="stat-label">Total Revenue</div><div class="stat-value">$${d.totalRevenue}</div></div>
+        <div class="stat-card alert"><div class="stat-label">Pending Payments</div><div class="stat-value">${d.pending}</div><div class="stat-sub">$${d.totalRevenue - d.revenueCollected} outstanding</div></div>
+        <div class="stat-card success"><div class="stat-label">Paid</div><div class="stat-value">${d.paid}</div><div class="stat-sub">$${d.revenueCollected} collected</div></div>
+        <div class="stat-card"><div class="stat-label">Awaiting Pickup</div><div class="stat-value">${d.awaitingPickup}</div></div>
+        <div class="stat-card success"><div class="stat-label">Picked Up</div><div class="stat-value">${d.pickedUp}</div></div>
+      </div>`;
+    elV.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">🥭 Banganapalli</div><div class="stat-value">${d.varieties.banganapalli}</div><div class="stat-sub">boxes · $${d.varietyRevenue.banganapalli}</div></div>
+        <div class="stat-card"><div class="stat-label">🥭 Kesar</div><div class="stat-value">${d.varieties.kesar}</div><div class="stat-sub">boxes · $${d.varietyRevenue.kesar}</div></div>
+        <div class="stat-card"><div class="stat-label">🥭 Rasalu</div><div class="stat-value">${d.varieties.rasalu}</div><div class="stat-sub">boxes · $${d.varietyRevenue.rasalu}</div></div>
+        <div class="stat-card"><div class="stat-label">🥭 Himayat</div><div class="stat-value">${d.varieties.himayat}</div><div class="stat-sub">boxes · $${d.varietyRevenue.himayat}</div></div>
+      </div>`;
+  } catch (err) { el.innerHTML = '<div class="empty">Error: ' + err.message + '</div>'; }
+}
+
+// ============ ORDER LISTS ============
+async function loadPending() { const r = await api('pendingPayments'); if (r.status === 'ok') { cachedData.pending = r.data; renderPending(); updateCount('pending', r.data.length); }}
+async function loadPickups() { const r = await api('pickups');         if (r.status === 'ok') { cachedData.pickups = r.data; renderPickups(); updateCount('pickups', r.data.length); }}
+async function loadOrders()  { const r = await api('orders');          if (r.status === 'ok') { cachedData.orders = r.data; renderOrders(); updateCount('orders', r.data.length); }}
+
+function updateCount(tab, n) {
+  const el = document.getElementById('cnt-' + tab);
+  el.textContent = n;
+  el.className = 'badge-count' + (n === 0 ? ' zero' : '');
+}
+
+function varietyCell(row) {
+  let s = [];
+  if (row.bangan) s.push('B×' + row.bangan);
+  if (row.rasalu) s.push('R×' + row.rasalu);
+  if (row.himayat) s.push('H×' + row.himayat);
+  if (row.kesar) s.push('K×' + row.kesar);
+  return s.join(' · ');
+}
+
+function renderPending() {
+  const el = document.getElementById('pending-list');
+  if (cachedData.pending.length === 0) { el.innerHTML = '<div class="empty">🎉 No pending payments!</div>'; return; }
+  el.innerHTML = `<table class="data-table"><thead><tr>
+    <th>Order</th><th>Customer</th><th>Phone</th><th>City</th><th>Boxes</th><th>Total</th><th>Action</th>
+  </tr></thead><tbody>` + cachedData.pending.map(r => `
+    <tr data-search="${(r.orderId+' '+r.customerName+' '+r.phone+' '+r.email).toLowerCase()}">
+      <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate}</small></td>
+      <td><strong>${r.customerName}</strong><br><small style="color:#888">${r.email}</small></td>
+      <td><a href="tel:${r.phone}">${r.phone}</a></td>
+      <td>${r.city}</td>
+      <td>${r.totalBoxes}<br><small style="color:#888">${varietyCell(r)}</small></td>
+      <td><strong>$${r.totalAmount}</strong></td>
+      <td>${actionButton(r, 'payment')}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+function renderPickups() {
+  const el = document.getElementById('pickups-list');
+  if (cachedData.pickups.length === 0) { el.innerHTML = '<div class="empty">🎉 No pickups awaiting!</div>'; return; }
+  el.innerHTML = `<table class="data-table"><thead><tr>
+    <th>Order</th><th>Customer</th><th>Phone</th><th>Pickup</th><th>Boxes</th><th>Action</th>
+  </tr></thead><tbody>` + cachedData.pickups.map(r => `
+    <tr data-search="${(r.orderId+' '+r.customerName+' '+r.phone+' '+r.email+' '+r.pickupLocation).toLowerCase()}">
+      <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate}</small></td>
+      <td><strong>${r.customerName}</strong><br><small style="color:#888">${r.email}</small></td>
+      <td><a href="tel:${r.phone}">${r.phone}</a></td>
+      <td>${r.pickupLocation || '—'}</td>
+      <td>${r.totalBoxes}<br><small style="color:#888">${varietyCell(r)}</small></td>
+      <td>${actionButton(r, 'pickup')}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+function renderOrders() {
+  const el = document.getElementById('orders-list');
+  if (cachedData.orders.length === 0) { el.innerHTML = '<div class="empty">No orders yet</div>'; return; }
+  el.innerHTML = `<table class="data-table"><thead><tr>
+    <th>Order</th><th>Customer</th><th>Phone</th><th>Boxes</th><th>Total</th><th>Payment</th><th>Pickup</th>
+  </tr></thead><tbody>` + cachedData.orders.map(r => `
+    <tr data-search="${(r.orderId+' '+r.customerName+' '+r.phone+' '+r.email).toLowerCase()}">
+      <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate}</small></td>
+      <td><strong>${r.customerName}</strong><br><small style="color:#888">${r.email}</small></td>
+      <td>${r.phone}</td>
+      <td>${r.totalBoxes}<br><small style="color:#888">${varietyCell(r)}</small></td>
+      <td><strong>$${r.totalAmount}</strong></td>
+      <td>${r.paymentReceived ? statusPill('PAID','status-paid') + adminOverride(r, 'payment') : statusPill('PENDING','status-pending')}</td>
+      <td>${r.pickedUp ? statusPill('PICKED UP','status-picked') + adminOverride(r, 'pickup') : (r.paymentReceived ? statusPill('AWAITING','status-awaiting') : '—')}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+function statusPill(text, cls) { return `<span class="status-pill ${cls}">${text}</span>`; }
+
+function actionButton(r, type) {
+  const done = (type === 'payment') ? r.paymentReceived : r.pickedUp;
+  const label = (type === 'payment') ? 'Mark Paid' : 'Mark Picked Up';
+  const doneLabel = (type === 'payment') ? '✓ Paid' : '✓ Picked Up';
+  if (done) {
+    let html = `<span class="btn btn-disabled">${doneLabel}</span>`;
+    if (userRole === 'admin') html += ' ' + adminOverride(r, type);
+    return html;
+  }
+  return `<button class="btn btn-primary" onclick="markAction('${r.orderId}','${type}',this)">${label}</button>`;
+}
+
+function adminOverride(r, type) {
+  if (userRole !== 'admin') return '';
+  return `<button class="btn btn-override" onclick="undoAction('${r.orderId}','${type}',this)" style="margin-left:6px;font-size:11px;padding:3px 8px;">↶ Undo (Admin)</button>`;
+}
+
+// ============ ACTIONS ============
+async function markAction(orderId, type, btn) {
+  if (!confirm(type === 'payment' ? `Confirm: mark Order #${orderId} as PAID?` : `Confirm: mark Order #${orderId} as PICKED UP?`)) return;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const action = (type === 'payment') ? 'markPaymentReceived' : 'markPickedUp';
+  const r = await api(action, {orderId});
+  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  else { toast('❌ ' + r.message, true); btn.disabled = false; }
+}
+
+async function undoAction(orderId, type, btn) {
+  if (!confirm(`ADMIN OVERRIDE: Unmark ${type} for Order #${orderId}? This will allow it to be re-marked.`)) return;
+  btn.disabled = true; btn.textContent = '…';
+  const action = (type === 'payment') ? 'unmarkPaymentReceived' : 'unmarkPickedUp';
+  const r = await api(action, {orderId});
+  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  else { toast('❌ ' + r.message, true); btn.disabled = false; }
+}
+
+// ============ SEARCH ============
+function filterTable(tab, query) {
+  const el = document.getElementById(tab + '-list');
+  const q = query.toLowerCase();
+  el.querySelectorAll('tbody tr').forEach(tr => {
+    tr.style.display = tr.dataset.search.includes(q) ? '' : 'none';
+  });
+}
+
+// ============ TOAST ============
+function toast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+
+</body>
+</html>
