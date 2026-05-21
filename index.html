@@ -685,10 +685,12 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
             </select>
           </div>
           <div class="form-group"><label>State *</label>
-            <select id="state" required style="background:#f0f0f0;color:#666;cursor:not-allowed;pointer-events:none;"
-              title="We currently serve the Dallas, TX metro area only." onfocus="this.blur()">
-              <option value="TX" selected>Texas (TX)</option>
-            </select>
+            <div style="width:100%;padding:12px 16px;border:1.5px solid rgba(42,21,0,.12);border-radius:6px;font-size:14px;font-family:'Outfit',sans-serif;color:#888;background:#f0f0f0;cursor:not-allowed;display:flex;align-items:center;justify-content:space-between;"
+              title="We currently serve the Dallas, TX metro area only.">
+              <span>Texas (TX)</span>
+              <span style="font-size:11px;opacity:.7;">🔒 LOCKED</span>
+            </div>
+            <input type="hidden" id="state" value="TX">
           </div>
         </div>
 
