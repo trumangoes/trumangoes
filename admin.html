@@ -462,6 +462,10 @@ async function refreshAll() {
   try {
     const r = await api('orders');
     if (r.status === 'ok' && Array.isArray(r.data)) {
+      // Normalize pickup location: strip a trailing " Hub" so older orders
+      // saved as "Frisco Hub" group together with "Frisco". Prevents duplicate
+      // location cards on the dashboard.
+      r.data.forEach(function(o){ o.pickupLocation = normLoc(o.pickupLocation); });
       cachedData.orders  = r.data;
       cachedData.pending = r.data.filter(o => !o.paymentReceived);
       cachedData.paid    = r.data.filter(o => o.paymentReceived);
@@ -708,6 +712,11 @@ function varietyCell(row) {
 
 // ============ LOCATION GROUPING ============
 const KNOWN_LOCATIONS = ['Frisco', 'Irving/Coppell', 'Plano', 'Prosper/Celina'];
+// Strip a trailing " Hub" (e.g. "Frisco Hub" -> "Frisco") so all variants
+// of the same location group together.
+function normLoc(loc) {
+  return String(loc == null ? '' : loc).replace(/\s*Hub\s*$/i, '').trim();
+}
 
 function populateLocationFilters() {
   // Collect all distinct locations from cached data
