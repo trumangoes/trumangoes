@@ -20,6 +20,7 @@
   .login-card .err{color:#a02020;font-size:14px;margin-top:10px;min-height:20px}
   .badge-role{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
   .badge-admin{background:#F5C842;color:#1F4A2C}
+  .badge-operator{background:#90CAF9;color:#0D47A1}
   .badge-partner{background:#dcedc8;color:#33691E}
   /* APP */
   .topbar{background:#1F4A2C;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.1);position:sticky;top:0;z-index:10}
@@ -200,8 +201,9 @@
 <div id="login" class="login-wrap">
   <div class="login-card">
     <h1>🥭 TRU Mangoes Admin</h1>
-    <div class="sub">Enter your access password</div>
-    <input type="password" id="pw-input" placeholder="Password" autofocus>
+    <div class="sub">Sign in with your username and password</div>
+    <input type="text" id="user-input" placeholder="Username" autocomplete="username" autofocus>
+    <input type="password" id="pw-input" placeholder="Password" autocomplete="current-password">
     <button onclick="login()">Sign In</button>
     <div class="err" id="login-err"></div>
   </div>
@@ -319,20 +321,29 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec';
 
 let userRole = null;
+let userName = null;
 let userPw = null;
+let canOverride = false;
 let cachedData = {pending:[], pickups:[], orders:[]};
 
 // ============ LOGIN ============
 async function login() {
+  const user = document.getElementById('user-input').value.trim();
   const pw = document.getElementById('pw-input').value.trim();
-  if (!pw) return;
+  if (!user || !pw) {
+    document.getElementById('login-err').textContent = 'Enter both username and password';
+    return;
+  }
   document.getElementById('login-err').textContent = 'Verifying…';
   try {
-    const res = await fetch(API_URL + '?action=verify&pw=' + encodeURIComponent(pw));
+    const res = await fetch(API_URL + '?action=verify&user=' + encodeURIComponent(user) + '&pw=' + encodeURIComponent(pw));
     const data = await res.json();
     if (data.status === 'ok') {
       userRole = data.role;
+      userName = data.username || user;
       userPw = pw;
+      canOverride = !!data.canOverride;
+      localStorage.setItem('tru_admin_user', user);
       localStorage.setItem('tru_admin_pw', pw);
       document.getElementById('login').style.display = 'none';
       document.getElementById('app').style.display = 'block';
@@ -340,13 +351,16 @@ async function login() {
       if (userRole === 'admin') {
         badge.className = 'badge-role badge-admin';
         badge.textContent = 'ADMIN';
+      } else if (userRole === 'operator') {
+        badge.className = 'badge-role badge-operator';
+        badge.textContent = 'OPERATOR';
       } else {
         badge.className = 'badge-role badge-partner';
         badge.textContent = 'PARTNER';
       }
       refreshAll();
     } else {
-      document.getElementById('login-err').textContent = '❌ Wrong password — try again';
+      document.getElementById('login-err').textContent = '❌ ' + (data.message || 'Wrong username or password');
     }
   } catch (err) {
     document.getElementById('login-err').textContent = '❌ Connection error: ' + err.message;
@@ -354,16 +368,23 @@ async function login() {
 }
 
 document.getElementById('pw-input').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
+document.getElementById('user-input').addEventListener('keypress', e => { if (e.key === 'Enter') document.getElementById('pw-input').focus(); });
 
 function logout() {
   localStorage.removeItem('tru_admin_pw');
+  localStorage.removeItem('tru_admin_user');
   location.reload();
 }
 
 // Auto-login if saved
 window.addEventListener('load', () => {
-  const saved = localStorage.getItem('tru_admin_pw');
-  if (saved) { document.getElementById('pw-input').value = saved; login(); }
+  const savedUser = localStorage.getItem('tru_admin_user');
+  const savedPw = localStorage.getItem('tru_admin_pw');
+  if (savedUser && savedPw) {
+    document.getElementById('user-input').value = savedUser;
+    document.getElementById('pw-input').value = savedPw;
+    login();
+  }
 });
 
 // ============ TABS ============
@@ -376,7 +397,7 @@ function showTab(name) {
 
 // ============ DATA LOADING ============
 async function api(action, params = {}) {
-  let url = API_URL + '?action=' + action + '&pw=' + encodeURIComponent(userPw);
+  let url = API_URL + '?action=' + action + '&user=' + encodeURIComponent(userName) + '&pw=' + encodeURIComponent(userPw);
   for (let k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
   const res = await fetch(url);
   return res.json();
@@ -882,15 +903,16 @@ function actionButton(r, type) {
   const doneLabel = (type === 'payment') ? '✓ Paid' : '✓ Picked Up';
   if (done) {
     let html = `<span class="btn btn-disabled">${doneLabel}</span>`;
-    if (userRole === 'admin') html += ' ' + adminOverride(r, type);
+    if (canOverride) html += ' ' + adminOverride(r, type);
     return html;
   }
   return `<button class="btn btn-primary" onclick="markAction('${r.orderId}','${type}',this)">${label}</button>`;
 }
 
 function adminOverride(r, type) {
-  if (userRole !== 'admin') return '';
-  return `<button class="btn btn-override" onclick="undoAction('${r.orderId}','${type}',this)" style="margin-left:6px;font-size:11px;padding:3px 8px;">↶ Undo (Admin)</button>`;
+  if (!canOverride) return '';
+  const roleLabel = userRole === 'admin' ? 'Admin' : 'Operator';
+  return `<button class="btn btn-override" onclick="undoAction('${r.orderId}','${type}',this)" style="margin-left:6px;font-size:11px;padding:3px 8px;">↶ Undo (${roleLabel})</button>`;
 }
 
 // ============ ACTIONS ============
