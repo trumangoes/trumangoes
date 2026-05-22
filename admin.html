@@ -223,7 +223,7 @@
   <div class="tabs" id="tabs">
     <button class="active" onclick="showTab('dashboard')">📊 Dashboard</button>
     <button onclick="showTab('pending')">💰 Pending Payments <span id="cnt-pending" class="badge-count zero">0</span></button>
-    <button onclick="showTab('pickups')">📦 Today's Pickups <span id="cnt-pickups" class="badge-count zero">0</span></button>
+    <button onclick="showTab('paid')">✅ Paid &amp; Pickups <span id="cnt-paid" class="badge-count zero">0</span></button>
     <button onclick="showTab('orders')">📋 All Orders <span id="cnt-orders" class="badge-count zero">0</span></button>
   </div>
 
@@ -275,23 +275,29 @@
             <option value="">All locations</option>
           </select>
         </div>
-        <input type="text" class="search-box" id="search-pending" placeholder="Search by name, order #, phone…" oninput="renderPending()">
+        <input type="text" class="search-box" id="search-pending" placeholder="Search by name, order #, phone, email…" oninput="renderPending()">
         <div id="pending-list" class="loading">Loading…</div>
       </div>
     </div>
 
-    <!-- PICKUPS -->
-    <div id="tab-pickups" class="tab-content" style="display:none">
+    <!-- PAID & PICKUPS -->
+    <div id="tab-paid" class="tab-content" style="display:none">
       <div class="panel">
-        <h2>📦 Today's Pickups (Paid &amp; Awaiting)</h2>
+        <h2>✅ Paid Customers &amp; Pickups</h2>
         <div class="filter-bar">
           <span class="filter-label">📍 Location:</span>
-          <select id="filter-pickups-loc" onchange="renderPickups()">
+          <select id="filter-paid-loc" onchange="renderPaid()">
             <option value="">All locations</option>
           </select>
+          <span class="filter-label" style="margin-left:14px;">🏷️ Show:</span>
+          <select id="filter-paid-pickup" onchange="renderPaid()">
+            <option value="">All paid</option>
+            <option value="awaiting">Awaiting pickup</option>
+            <option value="pickedup">Already picked up</option>
+          </select>
         </div>
-        <input type="text" class="search-box" id="search-pickups" placeholder="Search by name, order #, phone…" oninput="renderPickups()">
-        <div id="pickups-list" class="loading">Loading…</div>
+        <input type="text" class="search-box" id="search-paid" placeholder="Search by name, order #, phone, email…" oninput="renderPaid()">
+        <div id="paid-list" class="loading">Loading…</div>
       </div>
     </div>
 
@@ -304,8 +310,16 @@
           <select id="filter-orders-loc" onchange="renderOrders()">
             <option value="">All locations</option>
           </select>
+          <span class="filter-label" style="margin-left:14px;">🏷️ Status:</span>
+          <select id="filter-orders-status" onchange="renderOrders()">
+            <option value="">All statuses</option>
+            <option value="pending">Pending payment</option>
+            <option value="paid">Paid</option>
+            <option value="awaiting">Paid · awaiting pickup</option>
+            <option value="pickedup">Picked up</option>
+          </select>
         </div>
-        <input type="text" class="search-box" id="search-orders" placeholder="Search by name, order #, phone, email…" oninput="renderOrders()">
+        <input type="text" class="search-box" id="search-orders" placeholder="Search by name, order #, phone, email, city…" oninput="renderOrders()">
         <div id="orders-list" class="loading">Loading…</div>
       </div>
     </div>
@@ -324,7 +338,7 @@ let userRole = null;
 let userName = null;
 let userPw = null;
 let canOverride = false;
-let cachedData = {pending:[], pickups:[], orders:[]};
+let cachedData = {pending:[], paid:[], orders:[]};
 
 // ============ LOGIN ============
 async function login() {
@@ -392,7 +406,22 @@ function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).style.display = 'block';
-  event.target.classList.add('active');
+  if (typeof event !== 'undefined' && event && event.target) {
+    event.target.classList.add('active');
+  } else {
+    // Programmatic call: highlight by tab name
+    const map = {dashboard:0, pending:1, paid:2, orders:3};
+    const btns = document.querySelectorAll('.tabs button');
+    if (btns[map[name]]) btns[map[name]].classList.add('active');
+  }
+}
+// Navigate to a tab by name (safe from button-index shifts)
+function gotoTab(name, pickupFilter) {
+  showTab(name);
+  if (name === 'paid' && pickupFilter) {
+    const sel = document.getElementById('filter-paid-pickup');
+    if (sel) { sel.value = pickupFilter; renderPaid(); }
+  }
 }
 
 // ============ DATA LOADING ============
@@ -405,12 +434,36 @@ async function api(action, params = {}) {
 
 async function refreshAll() {
   toast('Refreshing data…');
-  await Promise.all([loadDashboard(), loadPending(), loadPickups(), loadOrders()]);
-  toast('✓ Data refreshed');
+  // Single source of truth: load ALL orders once, derive every list from it.
+  // This guarantees the dashboard and the tabs can never disagree.
+  try {
+    const r = await api('orders');
+    if (r.status === 'ok' && Array.isArray(r.data)) {
+      cachedData.orders  = r.data;
+      cachedData.pending = r.data.filter(o => !o.paymentReceived);
+      cachedData.paid    = r.data.filter(o => o.paymentReceived);
+      populateLocationFilters();
+      renderPending();
+      renderPaid();
+      renderOrders();
+      renderLocationBreakdown();
+      updateCount('pending', cachedData.pending.length);
+      updateCount('paid',    cachedData.paid.length);
+      updateCount('orders',  cachedData.orders.length);
+      renderDashboardFromOrders(r.data);
+      toast('✓ Data refreshed · ' + r.data.length + ' orders');
+    } else {
+      toast('⚠️ Could not load orders: ' + (r.message || 'unknown error'));
+    }
+  } catch (err) {
+    toast('⚠️ Connection error: ' + err.message);
+  }
 }
 
 // ============ DASHBOARD ============
-async function loadDashboard() {
+// Computes all dashboard stats from the single orders dataset (client-side),
+// so the dashboard always matches the list tabs exactly.
+function renderDashboardFromOrders(orders) {
   const hero = document.getElementById('dashboard-hero');
   const actionsPanel = document.getElementById('dashboard-actions');
   const actionsBody = document.getElementById('dashboard-actions-body');
@@ -419,28 +472,32 @@ async function loadDashboard() {
   const moneyEl = document.getElementById('dashboard-money');
 
   try {
-    const r = await api('dashboard');
-    if (r.status !== 'ok') {
-      hero.innerHTML = '<div class="empty">Error: ' + (r.message || 'unknown') + '</div>';
-      return;
-    }
-    const d = r.data || {};
-    // Defensive defaults
+    const PRICES = {banganapalli:47, rasalu:52, himayat:55, kesar:55};
     const s = {
-      totalOrders: d.totalOrders || 0,
-      totalBoxes: d.totalBoxes || 0,
-      totalRevenue: d.totalRevenue || 0,
-      paid: d.paid || 0,
-      pending: d.pending || 0,
-      revenueCollected: d.revenueCollected || 0,
-      pickedUp: d.pickedUp || 0,
-      awaitingPickup: d.awaitingPickup || 0,
-      varieties: d.varieties || {banganapalli:0, kesar:0, rasalu:0, himayat:0},
-      varietyRevenue: d.varietyRevenue || {banganapalli:0, kesar:0, rasalu:0, himayat:0}
+      totalOrders: 0, totalBoxes: 0, totalRevenue: 0,
+      paid: 0, pending: 0, revenueCollected: 0,
+      pickedUp: 0, awaitingPickup: 0,
+      varieties: {banganapalli:0, kesar:0, rasalu:0, himayat:0},
+      varietyRevenue: {banganapalli:0, kesar:0, rasalu:0, himayat:0}
     };
+    (orders || []).forEach(o => {
+      s.totalOrders++;
+      s.varieties.banganapalli += Number(o.bangan)  || 0;
+      s.varieties.kesar        += Number(o.kesar)   || 0;
+      s.varieties.rasalu       += Number(o.rasalu)  || 0;
+      s.varieties.himayat      += Number(o.himayat) || 0;
+      s.totalBoxes   += Number(o.totalBoxes)  || 0;
+      s.totalRevenue += Number(o.totalAmount) || 0;
+      if (o.paymentReceived) {
+        s.paid++;
+        s.revenueCollected += Number(o.totalAmount) || 0;
+        if (o.pickedUp) s.pickedUp++; else s.awaitingPickup++;
+      } else {
+        s.pending++;
+      }
+    });
     ['banganapalli','kesar','rasalu','himayat'].forEach(k => {
-      s.varieties[k] = s.varieties[k] || 0;
-      s.varietyRevenue[k] = s.varietyRevenue[k] || 0;
+      s.varietyRevenue[k] = s.varieties[k] * PRICES[k];
     });
     const revenueOutstanding = s.totalRevenue - s.revenueCollected;
 
@@ -474,7 +531,7 @@ async function loadDashboard() {
             <div class="action-title">${s.pending} pending payment${s.pending > 1 ? 's' : ''}</div>
             <div class="action-detail">$${formatNum(revenueOutstanding)} outstanding · follow up with these customers</div>
           </div>
-          <button class="btn btn-warn action-btn" onclick="document.querySelectorAll('.tabs button')[1].click()">Review →</button>
+          <button class="btn btn-warn action-btn" onclick="gotoTab('pending')">Review →</button>
         </div>`);
     }
     if (s.awaitingPickup > 0) {
@@ -485,7 +542,7 @@ async function loadDashboard() {
             <div class="action-title">${s.awaitingPickup} awaiting pickup</div>
             <div class="action-detail">paid orders ready to be handed over</div>
           </div>
-          <button class="btn btn-primary action-btn" onclick="document.querySelectorAll('.tabs button')[2].click()">View pickups →</button>
+          <button class="btn btn-primary action-btn" onclick="gotoTab('paid','awaiting')">View pickups →</button>
         </div>`);
     }
     if (actions.length === 0) {
@@ -606,12 +663,13 @@ function countActiveVarieties(v) {
 }
 
 // ============ ORDER LISTS ============
-async function loadPending() { const r = await api('pendingPayments'); if (r.status === 'ok') { cachedData.pending = r.data; populateLocationFilters(); renderPending(); updateCount('pending', r.data.length); }}
-async function loadPickups() { const r = await api('pickups');         if (r.status === 'ok') { cachedData.pickups = r.data; populateLocationFilters(); renderPickups(); updateCount('pickups', r.data.length); }}
-async function loadOrders()  { const r = await api('orders');          if (r.status === 'ok') { cachedData.orders = r.data; populateLocationFilters(); renderOrders(); updateCount('orders', r.data.length); renderLocationBreakdown(); }}
+// Lists are derived from the single orders dataset in refreshAll().
+// These thin wrappers allow a manual re-fetch if ever needed.
+async function loadOrders() { return refreshAll(); }
 
 function updateCount(tab, n) {
   const el = document.getElementById('cnt-' + tab);
+  if (!el) return;
   el.textContent = n;
   el.className = 'badge-count' + (n === 0 ? ' zero' : '');
 }
@@ -630,13 +688,13 @@ const KNOWN_LOCATIONS = ['Frisco', 'Irving/Coppell', 'Plano', 'Prosper/Celina'];
 
 function populateLocationFilters() {
   // Collect all distinct locations from cached data
-  const all = [...cachedData.pending, ...cachedData.pickups, ...cachedData.orders];
+  const all = [...cachedData.pending, ...cachedData.paid, ...cachedData.orders];
   const locs = new Set();
   all.forEach(o => { if (o.pickupLocation) locs.add(o.pickupLocation); });
   // Add known locations to ensure they appear even if empty
   KNOWN_LOCATIONS.forEach(l => locs.add(l));
   const sorted = [...locs].sort();
-  ['filter-pending-loc', 'filter-pickups-loc', 'filter-orders-loc'].forEach(id => {
+  ['filter-pending-loc', 'filter-paid-loc', 'filter-orders-loc'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const currentValue = sel.value;
@@ -707,14 +765,29 @@ function escapeHtml(s) {
 }
 
 // ============ RENDER (with location grouping & filtering) ============
-function applyFilters(orders, locFilter, search) {
+function applyFilters(orders, locFilter, search, statusFilter) {
   let out = orders;
   if (locFilter) out = out.filter(o => o.pickupLocation === locFilter);
+  if (statusFilter) {
+    out = out.filter(o => {
+      if (statusFilter === 'pending')  return !o.paymentReceived;
+      if (statusFilter === 'paid')     return o.paymentReceived;
+      if (statusFilter === 'awaiting') return o.paymentReceived && !o.pickedUp;
+      if (statusFilter === 'pickedup') return o.pickedUp;
+      return true;
+    });
+  }
   if (search) {
-    const q = search.toLowerCase();
-    out = out.filter(o =>
-      (o.orderId + ' ' + (o.customerName||'') + ' ' + (o.phone||'') + ' ' + (o.email||'') + ' ' + (o.city||'')).toLowerCase().includes(q)
-    );
+    const q = search.toLowerCase().trim();
+    out = out.filter(o => {
+      const haystack = [
+        o.orderId, o.customerName, o.phone, o.whatsapp, o.email,
+        o.city, o.pickupLocation, o.notes, o.paymentStatus, o.pickupStatus,
+        o.paymentReceived ? 'paid' : 'pending',
+        o.pickedUp ? 'pickedup picked up' : 'awaiting'
+      ].map(x => (x == null ? '' : String(x))).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
   }
   return out;
 }
@@ -750,13 +823,18 @@ function renderPending() {
     </div>`).join('');
 }
 
-function renderPickups() {
-  const el = document.getElementById('pickups-list');
-  const locFilter = document.getElementById('filter-pickups-loc')?.value || '';
-  const search = document.getElementById('search-pickups')?.value || '';
-  const filtered = applyFilters(cachedData.pickups, locFilter, search);
+function renderPaid() {
+  const el = document.getElementById('paid-list');
+  if (!el) return;
+  const locFilter = document.getElementById('filter-paid-loc')?.value || '';
+  const search = document.getElementById('search-paid')?.value || '';
+  const pickupFilter = document.getElementById('filter-paid-pickup')?.value || '';
+  let base = cachedData.paid;
+  if (pickupFilter === 'awaiting') base = base.filter(o => !o.pickedUp);
+  if (pickupFilter === 'pickedup') base = base.filter(o => o.pickedUp);
+  const filtered = applyFilters(base, locFilter, search);
   if (filtered.length === 0) {
-    el.innerHTML = '<div class="empty">🎉 ' + (cachedData.pickups.length === 0 ? 'No pickups awaiting!' : 'No matches with current filters') + '</div>';
+    el.innerHTML = '<div class="empty">' + (cachedData.paid.length === 0 ? 'No paid orders yet' : 'No matches with current filters') + '</div>';
     return;
   }
   const groups = groupByLocation(filtered);
@@ -766,15 +844,17 @@ function renderPickups() {
       <div class="loc-body">
         <table class="data-table">
           <thead><tr>
-            <th>Order</th><th>Customer Details</th><th>Boxes</th><th>Total</th><th>Action</th>
+            <th>Order</th><th>Customer Details</th><th>Boxes</th><th>Total</th><th>Pickup</th>
           </tr></thead>
           <tbody>${orders.map(r => `
             <tr>
               <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate || ''}</small></td>
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
-              <td>$${formatNum(r.totalAmount)}</td>
-              <td>${actionButton(r, 'pickup')}</td>
+              <td><strong>$${formatNum(r.totalAmount)}</strong></td>
+              <td>${r.pickedUp
+                  ? statusPill('PICKED UP','status-picked') + adminOverride(r, 'pickup')
+                  : actionButton(r, 'pickup')}</td>
             </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -785,7 +865,8 @@ function renderOrders() {
   const el = document.getElementById('orders-list');
   const locFilter = document.getElementById('filter-orders-loc')?.value || '';
   const search = document.getElementById('search-orders')?.value || '';
-  const filtered = applyFilters(cachedData.orders, locFilter, search);
+  const statusFilter = document.getElementById('filter-orders-status')?.value || '';
+  const filtered = applyFilters(cachedData.orders, locFilter, search, statusFilter);
   if (filtered.length === 0) {
     el.innerHTML = '<div class="empty">' + (cachedData.orders.length === 0 ? 'No orders yet' : 'No matches with current filters') + '</div>';
     return;
@@ -835,10 +916,10 @@ function renderLocationBreakdown() {
     s.orders++;
     s.boxes += o.totalBoxes || 0;
     s.revenue += o.totalAmount || 0;
-    if (o.paymentStatus === 'Paid') {
+    if (o.paymentReceived) {
       s.paid++;
       s.collected += o.totalAmount || 0;
-      if (o.pickupStatus === 'Picked Up') s.pickedUp++;
+      if (o.pickedUp) s.pickedUp++;
       else s.awaiting++;
     } else {
       s.pending++;

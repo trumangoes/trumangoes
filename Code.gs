@@ -236,6 +236,13 @@ function onEditHandler(e) {
 
 function handlePaymentReceived_(sheet, row) {
   const orderData = getOrderData_(sheet, row);
+  // ALWAYS update the status columns first — independent of email state.
+  // (Previously this ran AFTER the "already sent" check, so re-ticking the
+  //  box left Payment Status stuck on "Pending".)
+  sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PAYMENT_STATUS)).setValue('Paid');
+  const paymentDateCell = sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PAYMENT_DATE));
+  if (!paymentDateCell.getValue()) paymentDateCell.setValue(new Date());
+
   if (!orderData.customerName || !orderData.email) {
     logEmail_(orderData.orderId, orderData.customerName, 'Payment Confirmed', orderData.email, 'SKIPPED - missing data');
     return;
@@ -245,9 +252,6 @@ function handlePaymentReceived_(sheet, row) {
     logEmail_(orderData.orderId, orderData.customerName, 'Payment Confirmed', orderData.email, 'SKIPPED - already sent');
     return;
   }
-  sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PAYMENT_STATUS)).setValue('Paid');
-  const paymentDateCell = sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PAYMENT_DATE));
-  if (!paymentDateCell.getValue()) paymentDateCell.setValue(new Date());
   try {
     sendPaymentConfirmedEmail_(orderData);
     sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PAYMENT_EMAIL_SENT)).setValue(formatTimestamp_(new Date()));
@@ -259,6 +263,9 @@ function handlePaymentReceived_(sheet, row) {
 
 function handlePickedUp_(sheet, row) {
   const orderData = getOrderData_(sheet, row);
+  // ALWAYS update pickup status first, independent of email state.
+  sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PICKUP_STATUS)).setValue('Picked Up');
+
   if (!orderData.customerName || !orderData.email) {
     logEmail_(orderData.orderId, orderData.customerName, 'Pickup Thank You', orderData.email, 'SKIPPED - missing data');
     return;
@@ -268,7 +275,6 @@ function handlePickedUp_(sheet, row) {
     logEmail_(orderData.orderId, orderData.customerName, 'Pickup Thank You', orderData.email, 'SKIPPED - already sent');
     return;
   }
-  sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PICKUP_STATUS)).setValue('Picked Up');
   try {
     sendThankYouEmail_(orderData);
     sheet.getRange(row, letterToColumnNumber_(CONFIG.COL.PICKUP_EMAIL_SENT)).setValue(formatTimestamp_(new Date()));
@@ -1385,8 +1391,14 @@ function doGet(e) {
       case 'pendingPayments':
         return jsonResponse_({status: 'ok', data: getOrdersData_('pending')});
 
+      case 'paidPayments':
+        return jsonResponse_({status: 'ok', data: getOrdersData_('paid')});
+
       case 'pickups':
         return jsonResponse_({status: 'ok', data: getOrdersData_('pickups')});
+
+      case 'pickedUp':
+        return jsonResponse_({status: 'ok', data: getOrdersData_('pickedup')});
 
       case 'markPaymentReceived':
         return jsonResponse_(markPaymentReceived_(orderId, role));
@@ -1462,21 +1474,51 @@ function generatePasswordHash() {
   );
 }
 
-function getDashboardData_() {
-  var EMPTY_STATS = {
-    totalOrders: 0, totalBoxes: 0, totalRevenue: 0,
-    paid: 0, pending: 0, revenueCollected: 0,
-    pickedUp: 0, awaitingPickup: 0,
-    varieties: {banganapalli:0, kesar:0, rasalu:0, himayat:0},
-    varietyRevenue: {banganapalli:0, kesar:0, rasalu:0, himayat:0}
-  };
+// ───────────────────────────────────────────────────────────────────
+// 🧹 SHEET CLEANUP UTILITIES (run once from the Apps Script editor)
+// ───────────────────────────────────────────────────────────────────
+
+// Removes any duplicate/extra columns beyond column X (24). Your sheet has
+// a second "Picked Up ✅" and "Pickup Email Sent" in columns Y & Z — this
+// deletes everything from column 25 onward so the layout is clean (A–X only).
+function cleanupExtraColumns() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(CONFIG.ORDERS_SHEET_NAME);
-  if (!sheet) return EMPTY_STATS;
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 3) return EMPTY_STATS;
+  if (!sheet) { SpreadsheetApp.getUi().alert('Orders sheet not found.'); return; }
+  var maxCols = sheet.getMaxColumns();
+  var keep = 24; // A–X
+  if (maxCols > keep) {
+    sheet.deleteColumns(keep + 1, maxCols - keep);
+    SpreadsheetApp.getUi().alert('✅ Removed ' + (maxCols - keep) + ' extra column(s). Sheet now ends at column X.');
+  } else {
+    SpreadsheetApp.getUi().alert('Nothing to remove — sheet already has ' + maxCols + ' columns.');
+  }
+}
 
-  var data = sheet.getRange(3, 1, lastRow - 2, 20).getValues();
+// Sets the Payment Method column (O) to a dropdown of Zelle / Cash.
+// "Cash" is for walk-ins who pay cash for boxes left out for pickup.
+function setupPaymentMethodDropdown() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.ORDERS_SHEET_NAME);
+  if (!sheet) { SpreadsheetApp.getUi().alert('Orders sheet not found.'); return; }
+  var col = letterToColumnNumber_(CONFIG.COL.PAYMENT_METHOD); // O = 15
+  var lastRow = Math.max(sheet.getMaxRows(), CONFIG.DATA_START_ROW);
+  var numRows = lastRow - CONFIG.DATA_START_ROW + 1;
+  var range = sheet.getRange(CONFIG.DATA_START_ROW, col, numRows, 1);
+  var rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Zelle', 'Cash'], true)
+    .setAllowInvalid(false)
+    .setHelpText('Choose Zelle or Cash (Cash = walk-in / box left out).')
+    .build();
+  range.setDataValidation(rule);
+  SpreadsheetApp.getUi().alert('✅ Payment Method (column O) now has a Zelle / Cash dropdown for all order rows.');
+}
+
+function getDashboardData_() {
+  // Derive ALL stats from the same getOrdersData_ source the list tabs use,
+  // so the dashboard and the lists can never disagree. Paid/picked status
+  // comes from the checkbox columns (source of truth).
+  var orders = getOrdersData_('all');
   var stats = {
     totalOrders: 0, totalBoxes: 0, totalRevenue: 0,
     paid: 0, pending: 0, revenueCollected: 0,
@@ -1484,19 +1526,18 @@ function getDashboardData_() {
     varieties: {banganapalli:0, kesar:0, rasalu:0, himayat:0},
     varietyRevenue: {banganapalli:0, kesar:0, rasalu:0, himayat:0}
   };
-  data.forEach(function(row) {
-    if (!row[0]) return; // skip empty
+  orders.forEach(function(o) {
     stats.totalOrders++;
-    stats.varieties.banganapalli += Number(row[7]) || 0;  // H
-    stats.varieties.kesar        += Number(row[8]) || 0;  // I
-    stats.varieties.rasalu       += Number(row[9]) || 0;  // J
-    stats.varieties.himayat      += Number(row[10]) || 0; // K
-    stats.totalBoxes   += Number(row[11]) || 0;           // L
-    stats.totalRevenue += Number(row[12]) || 0;           // M
-    if (String(row[13]) === 'Paid') {
+    stats.varieties.banganapalli += Number(o.bangan)  || 0;
+    stats.varieties.kesar        += Number(o.kesar)   || 0;
+    stats.varieties.rasalu       += Number(o.rasalu)  || 0;
+    stats.varieties.himayat      += Number(o.himayat) || 0;
+    stats.totalBoxes   += Number(o.totalBoxes)  || 0;
+    stats.totalRevenue += Number(o.totalAmount) || 0;
+    if (o.paymentReceived) {
       stats.paid++;
-      stats.revenueCollected += Number(row[12]) || 0;
-      if (String(row[17]) === 'Picked Up') stats.pickedUp++;
+      stats.revenueCollected += Number(o.totalAmount) || 0;
+      if (o.pickedUp) stats.pickedUp++;
       else stats.awaitingPickup++;
     } else {
       stats.pending++;
@@ -1515,36 +1556,49 @@ function getOrdersData_(filter) {
   if (!sheet) return [];
   var lastRow = sheet.getLastRow();
   if (lastRow < 3) return [];
-  var data = sheet.getRange(3, 1, lastRow - 2, 24).getValues();
+  // Defensive: read only as many columns as actually exist (up to 24).
+  // This prevents "range exceeds grid" errors if the sheet is narrower,
+  // and ignores any duplicate/extra columns beyond X.
+  var maxCols = sheet.getLastColumn();
+  var numCols = Math.min(24, maxCols);
+  if (numCols < 13) return [];
+  var numRows = lastRow - 2;
+  var data = sheet.getRange(3, 1, numRows, numCols).getValues();
   var rows = [];
   data.forEach(function(r, idx) {
-    if (!r[0]) return;
-    var paid = String(r[13]) === 'Paid';
-    var picked = String(r[17]) === 'Picked Up';
-    if (filter === 'pending' && paid) return;
-    if (filter === 'pickups' && (!paid || picked)) return;
+    if (r[0] === '' || r[0] === null || r[0] === undefined) return; // skip empty rows
+    // Pad row to 24 cells so index access never goes out of bounds
+    while (r.length < 24) r.push('');
+    // Source of truth: the CHECKBOX columns (U=21→idx20, W=23→idx22).
+    // Fall back to the text status columns (N=14→idx13, R=18→idx17).
+    var paid   = (r[20] === true) || (String(r[13]).trim() === 'Paid');
+    var picked = (r[22] === true) || (String(r[17]).trim() === 'Picked Up');
+    if (filter === 'pending'  && paid) return;
+    if (filter === 'paid'     && !paid) return;
+    if (filter === 'pickups'  && (!paid || picked)) return;
+    if (filter === 'pickedup' && !picked) return;
     rows.push({
-      rowNum:        idx + 3,
-      orderId:       r[0],
-      orderDate:     r[1] ? Utilities.formatDate(new Date(r[1]), 'America/Chicago', 'M/d h:mm a') : '',
-      customerName:  r[2],
-      phone:         r[3],
-      whatsapp:      r[4],
-      email:         r[5],
-      city:          r[6],
-      bangan:        r[7] || 0,
-      kesar:         r[8] || 0,
-      rasalu:        r[9] || 0,
-      himayat:       r[10] || 0,
-      totalBoxes:    r[11] || 0,
-      totalAmount:   r[12] || 0,
-      paymentStatus: r[13] || '',
-      paymentMethod: r[14] || '',
-      pickupStatus:  r[17] || '',
+      rowNum:         idx + 3,
+      orderId:        r[0],
+      orderDate:      r[1] ? Utilities.formatDate(new Date(r[1]), 'America/Chicago', 'M/d h:mm a') : '',
+      customerName:   r[2],
+      phone:          r[3],
+      whatsapp:       r[4],
+      email:          r[5],
+      city:           r[6],
+      bangan:         r[7]  || 0,
+      kesar:          r[8]  || 0,
+      rasalu:         r[9]  || 0,
+      himayat:        r[10] || 0,
+      totalBoxes:     r[11] || 0,
+      totalAmount:    r[12] || 0,
+      paymentStatus:  paid ? 'Paid' : (r[13] || 'Pending'),
+      paymentMethod:  r[14] || '',
+      pickupStatus:   picked ? 'Picked Up' : (r[17] || 'Awaiting'),
       pickupLocation: r[18] || '',
-      notes:         r[19] || '',
-      paymentReceived: r[20] === true,
-      pickedUp:        r[22] === true
+      notes:          r[19] || '',
+      paymentReceived: paid,
+      pickedUp:        picked
     });
   });
   return rows;
@@ -1560,11 +1614,12 @@ function markPaymentReceived_(orderId, role) {
     return {status: 'error', code: 'already_done', message: 'Already marked. Admin override required to undo.'};
   }
   cell.setValue(true);
-  // Visual grey indicator (matches what onEdit trigger does for sheet edits)
   cell.setBackground('#cfd8dc');
-  // The existing Apps Script handler that sends the Payment Confirmed email
-  // already fires from onEdit. Since we set it via script not user edit,
-  // we need to call it directly here. Trigger the email handler:
+  // Keep the text status columns in sync so dashboard + lists always agree
+  sheet.getRange(rowNum, 14).setValue('Paid');       // N = Payment Status
+  if (!sheet.getRange(rowNum, 17).getValue()) {
+    sheet.getRange(rowNum, 17).setValue(new Date());  // Q = Payment Date
+  }
   try {
     sendPaymentEmailIfNeeded_(sheet, rowNum);
   } catch (err) { /* email send is best-effort */ }
@@ -1582,6 +1637,8 @@ function markPickedUp_(orderId, role) {
   }
   cell.setValue(true);
   cell.setBackground('#cfd8dc');
+  // Keep text status column in sync
+  sheet.getRange(rowNum, 18).setValue('Picked Up');  // R = Pickup Status
   try {
     sendPickupEmailIfNeeded_(sheet, rowNum);
   } catch (err) { /* best-effort */ }
@@ -1596,6 +1653,13 @@ function unmarkAction_(orderId, type) {
   var cell = sheet.getRange(rowNum, col);
   cell.setValue(false);
   cell.setBackground(null);
+  // Keep text status columns in sync
+  if (type === 'payment') {
+    sheet.getRange(rowNum, 14).setValue('Pending'); // N = Payment Status
+    sheet.getRange(rowNum, 17).setValue('');         // Q = Payment Date (clear)
+  } else {
+    sheet.getRange(rowNum, 18).setValue('Awaiting'); // R = Pickup Status
+  }
   // Remove any auto-lock protection on this cell
   var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE);
   protections.forEach(function(p) {
