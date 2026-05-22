@@ -63,9 +63,11 @@ const CONFIG = {
   //   'admin'    — full control, can override/undo any locked action
   //   'operator' — can mark payments/pickups done, but CANNOT undo
   //
-  // DEFAULT CREDENTIALS:
-  //   admin    / Vsvv662008$!!
-  //   operator / MPickup2026$
+  // Credentials are stored as SHA-256 hashes only — no plaintext here.
+  // To change a password: run generatePasswordHash() from the Apps Script
+  // editor, enter the new password, copy the hash, and replace the
+  // passwordHash value below. Keep your plaintext passwords in a private
+  // password manager, never in this file.
   // ===================================================================
   PASSWORD_SALT: 'tru-mango-salt-v1-9x7k2zQ',
   USERS: [
