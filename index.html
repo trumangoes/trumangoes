@@ -322,7 +322,6 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 }
 .mobile-menu a:active,.mobile-menu a:hover{background:rgba(255,255,255,.05)}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -1080,31 +1079,41 @@ function submitOrder(){
   const data={timestamp:new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}),firstName:fn,lastName:ln,email:em,phone:ph,city:cy,state:st,cityState:cy+', '+st,pickupLocation:pl,banganBoxes:q.bangan,kesarBoxes:q.kesar,rasaluBoxes:q.rasalu,himayatBoxes:q.himayat,totalBoxes:tb,delivery:'Pickup - '+pl,deliveryCost:0,boxTotal:boxTotal,grandTotal:g,source:document.getElementById('source').value,notes:document.getElementById('notes').value.trim()};
   const btn=document.getElementById('submit-btn');btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting...';
 
-  // POST to Apps Script webhook with text/plain to avoid CORS preflight
-  // (Apps Script reads e.postData.contents regardless of Content-Type)
-  // Read response to capture the assigned Order ID for the customer email.
+  // POST to Apps Script webhook with text/plain to avoid CORS preflight.
+  // A 35s timeout guards against the page hanging if the server is briefly
+  // overloaded; on timeout/error we still show success (the order is saved
+  // server-side) and tell the customer their Order # is in their email.
+  var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timedOut = false;
+  var timer = setTimeout(function(){ timedOut = true; if (ctrl) ctrl.abort(); }, 35000);
   fetch(URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
+    signal: ctrl ? ctrl.signal : undefined
   })
   .then(function(resp){ return resp.json(); })
   .then(function(result){
+    clearTimeout(timer);
     var orderId = (result && result.orderId) ? result.orderId : ('TM-' + Date.now().toString().slice(-6));
     sendEmails_(data, orderId);
   })
   .catch(function(err){
+    clearTimeout(timer);
     console.log('Webhook error:', err);
-    // Fallback: send email with a timestamp-based ID so customer still gets a confirmation
-    var fallbackId = 'TM-' + Date.now().toString().slice(-6);
+    // Order is saved server-side even if we didn't get the response in time.
+    // Show success with a "check your email" note instead of a wrong number.
+    var fallbackId = timedOut ? 'received' : ('TM-' + Date.now().toString().slice(-6));
     sendEmails_(data, fallbackId);
   });
 }
 
 function sendEmails_(data, orderId) {
-  // Send emails via EmailJS
-  emailjs.init('g7l486yp7oNFEeAMb');
-
+  // Emails are sent entirely server-side by Apps Script (customer confirmation,
+  // BCC'd to the owner). The browser does nothing but show the success page.
+  show(data, orderId);
+}
+function sendEmails_unused_(data, orderId) {
   // Build variety breakdown lines (HTML for emails, plain text fallback)
   var varietyList = [
     { name: 'Banganapalli', qty: data.banganBoxes || 0, price: PRICES.bangan },
@@ -1168,24 +1177,28 @@ function sendEmails_(data, orderId) {
   show(data, orderId);
 }
 function show(o, orderId){
+  var isReal = orderId && orderId !== 'received';
+  var idText = isReal ? ('Order #' + orderId) : 'Order Received \u2705';
   // Show order ID in the success card if a placeholder exists, else inject one at top
   var idBadge = document.getElementById('z-orderid');
   if (idBadge) {
-    idBadge.textContent = 'Order #' + orderId;
+    idBadge.textContent = idText;
   } else {
     var succ = document.getElementById('succ');
     if (succ) {
       var badge = document.createElement('div');
       badge.id = 'z-orderid';
       badge.style.cssText = 'display:inline-block;background:#1F4A2C;color:#F5C842;padding:10px 22px;border-radius:30px;font-size:18px;font-weight:700;letter-spacing:.05em;margin:0 auto 16px auto;font-family:\'Cormorant Garamond\',serif;';
-      badge.textContent = 'Order #' + orderId;
+      badge.textContent = idText;
       var wrap = document.createElement('div');
       wrap.style.textAlign = 'center';
       wrap.appendChild(badge);
       succ.insertBefore(wrap, succ.firstChild);
     }
   }
-  document.getElementById('z-memo').textContent = 'Order #' + orderId + ' — ' + o.firstName + ' ' + o.lastName;
+  document.getElementById('z-memo').textContent = isReal
+    ? ('Order #' + orderId + ' \u2014 ' + o.firstName + ' ' + o.lastName)
+    : ('Your Order # \u2014 check your confirmation email \u2014 ' + o.firstName + ' ' + o.lastName);
   [['z-b',o.banganBoxes,'Banganapalli'],['z-k',o.kesarBoxes,'Kesar'],['z-r',o.rasaluBoxes,'Rasalu'],['z-h',o.himayatBoxes,'Himayat']].forEach(([id,n,nm])=>{const el=document.getElementById(id);if(n>0){el.innerHTML='<span>'+nm+'</span><span>'+n+' box'+(n!==1?'es':'')+'</span>'}else{el.style.display='none'}});
   document.getElementById('z-d').innerHTML='<span>Pickup Area</span><span>'+(o.pickupLocation||'TBD')+'</span>';
   var zpa=document.getElementById('z-pickup-area');

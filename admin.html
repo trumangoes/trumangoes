@@ -64,8 +64,18 @@
   .btn-warn{background:#C8973A;color:#fff}
   .btn-warn:hover{background:#a37725}
   .btn-disabled{background:#cfd8dc;color:#37474f;cursor:not-allowed;font-style:italic}
+  .btn-locked{background:#f5f0e6;color:#9a8c6a;cursor:not-allowed;border:1px dashed #cbb98a}
   .btn-override{background:#fff;color:#a02020;border:1px solid #a02020}
   .btn-override:hover{background:#a02020;color:#fff}
+  /* Payment method modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(26,10,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px}
+  .modal-card{background:#fff;border-radius:14px;max-width:380px;width:100%;padding:28px 24px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .modal-card h3{font-size:19px;color:#1F4A2C;margin:0 0 6px}
+  .modal-card p{font-size:14px;color:#666;margin:0 0 20px}
+  .modal-pay-btns{display:flex;gap:12px}
+  .modal-pay-btns button{flex:1;padding:16px;border-radius:10px;border:2px solid #1F4A2C;background:#fff;color:#1F4A2C;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s}
+  .modal-pay-btns button:hover{background:#1F4A2C;color:#fff}
+  .modal-cancel{margin-top:16px;background:none;border:none;color:#999;font-size:13px;cursor:pointer;text-decoration:underline}
   /* TOAST */
   .toast{position:fixed;bottom:20px;right:20px;background:#1F4A2C;color:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);display:none;z-index:100;font-size:14px;max-width:320px}
   .toast.show{display:block;animation:slideIn .3s}
@@ -328,6 +338,19 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Payment method modal -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal-card">
+    <h3>💵 Record Payment</h3>
+    <p>How did the customer pay for order <strong id="pay-modal-order">#0</strong>?</p>
+    <div class="modal-pay-btns">
+      <button onclick="confirmPayment('Zelle')">📱 Zelle</button>
+      <button onclick="confirmPayment('Cash')">💵 Cash</button>
+    </div>
+    <button class="modal-cancel" onclick="closePayModal()">Cancel</button>
+  </div>
+</div>
 
 <script>
 // ⚠️ IMPORTANT: Replace this with your current Apps Script Web App URL.
@@ -748,11 +771,12 @@ function toggleLocSection(headerEl) {
 
 // Customer details cell (richer than before — clickable contact links)
 function custCell(r) {
-  const phoneClean = (r.phone || '').replace(/[^0-9]/g, '');
+  const phoneClean = String(r.phone == null ? '' : r.phone).replace(/[^0-9]/g, '');
+  const phoneDisplay = String(r.phone == null ? '' : r.phone);
   return `
     <div class="cust-name">${escapeHtml(r.customerName || '')}</div>
     <div class="cust-contact">
-      <a href="tel:${phoneClean}" title="Call">📞 ${escapeHtml(r.phone || '')}</a>
+      <a href="tel:${phoneClean}" title="Call">📞 ${escapeHtml(phoneDisplay)}</a>
       ${phoneClean ? `<a href="https://wa.me/1${phoneClean}" target="_blank" title="WhatsApp">💬 WhatsApp</a>` : ''}
       ${r.email ? `<a href="mailto:${escapeHtml(r.email)}" title="Email">✉️ ${escapeHtml(r.email)}</a>` : ''}
     </div>
@@ -886,8 +910,8 @@ function renderOrders() {
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
-              <td>${r.paymentReceived ? statusPill('PAID','status-paid') + adminOverride(r, 'payment') : statusPill('PENDING','status-pending')}</td>
-              <td>${r.pickedUp ? statusPill('PICKED UP','status-picked') + adminOverride(r, 'pickup') : (r.paymentReceived ? statusPill('AWAITING','status-awaiting') : '—')}</td>
+              <td>${actionButton(r, 'payment')}</td>
+              <td>${actionButton(r, 'pickup')}</td>
             </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -980,12 +1004,17 @@ function statusPill(text, cls) { return `<span class="status-pill ${cls}">${text
 
 function actionButton(r, type) {
   const done = (type === 'payment') ? r.paymentReceived : r.pickedUp;
-  const label = (type === 'payment') ? 'Mark Paid' : 'Mark Picked Up';
-  const doneLabel = (type === 'payment') ? '✓ Paid' : '✓ Picked Up';
+  const label = (type === 'payment') ? '💵 Mark Paid' : '📦 Mark Picked Up';
+  const doneLabel = (type === 'payment') ? '✓ Paid' + (r.paymentMethod ? ' (' + r.paymentMethod + ')' : '') : '✓ Picked Up';
   if (done) {
     let html = `<span class="btn btn-disabled">${doneLabel}</span>`;
     if (canOverride) html += ' ' + adminOverride(r, type);
     return html;
+  }
+  // Pickup stays LOCKED until payment is received — you can't hand over boxes
+  // for an unpaid order.
+  if (type === 'pickup' && !r.paymentReceived) {
+    return `<span class="btn btn-locked" title="Payment must be received before pickup">🔒 Pay first</span>`;
   }
   return `<button class="btn btn-primary" onclick="markAction('${r.orderId}','${type}',this)">${label}</button>`;
 }
@@ -998,12 +1027,37 @@ function adminOverride(r, type) {
 
 // ============ ACTIONS ============
 async function markAction(orderId, type, btn) {
-  if (!confirm(type === 'payment' ? `Confirm: mark Order #${orderId} as PAID?` : `Confirm: mark Order #${orderId} as PICKED UP?`)) return;
+  if (type === 'payment') {
+    // Ask how they paid (important for cash walk-ins at the pickup spot)
+    openPayModal(orderId);
+    return;
+  }
+  if (!confirm(`Confirm: mark Order #${orderId} as PICKED UP?\n\nMake sure the customer has their boxes.`)) return;
   btn.disabled = true; btn.textContent = 'Saving…';
-  const action = (type === 'payment') ? 'markPaymentReceived' : 'markPickedUp';
-  const r = await api(action, {orderId});
+  const r = await api('markPickedUp', {orderId});
   if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
   else { toast('❌ ' + r.message, true); btn.disabled = false; }
+}
+
+// Payment-method modal: Zelle or Cash
+let _payOrderId = null;
+function openPayModal(orderId) {
+  _payOrderId = orderId;
+  document.getElementById('pay-modal-order').textContent = '#' + orderId;
+  document.getElementById('pay-modal').style.display = 'flex';
+}
+function closePayModal() {
+  document.getElementById('pay-modal').style.display = 'none';
+  _payOrderId = null;
+}
+async function confirmPayment(method) {
+  const orderId = _payOrderId;
+  closePayModal();
+  if (!orderId) return;
+  toast('Saving payment…');
+  const r = await api('markPaymentReceived', {orderId, method});
+  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  else { toast('❌ ' + r.message, true); }
 }
 
 async function undoAction(orderId, type, btn) {

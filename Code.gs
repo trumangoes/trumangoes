@@ -495,49 +495,62 @@ function sendThankYouEmail_(data) {
 // ═══════════════════════════════════════════════════════════════════
 
 function doPost(e) {
+  // ── Concurrency-safe order intake ──
+  // A script lock serializes ONLY the Order-ID assignment + row write, so two
+  // simultaneous orders can never grab the same Order ID. The lock is released
+  // before the (slower) email send, so orders don't queue behind each other's
+  // emails. This keeps intake fast even under a burst of submissions.
+  var lock = LockService.getScriptLock();
+  var locked = false;
   try {
-    const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(CONFIG.ORDERS_SHEET_NAME);
-    if (!sheet) return jsonResponse_({status: 'error', message: 'Orders sheet not found'});
+    lock.waitLock(30000); // wait up to 30s
+    locked = true;
+  } catch (lockErr) {
+    return jsonResponse_({status: 'error', message: 'Server busy — please tap submit again.'});
+  }
 
-    const nextRow = findNextEmptyRow_(sheet);
-    const orderId = getNextOrderId_(sheet);
-    const customerName = ((data.firstName || '') + ' ' + (data.lastName || '')).trim();
-    const serviceArea = mapServiceArea_(data.pickupLocation);
+  var orderId, customerName, data, bangan, kesar, rasalu, himayat, totalBoxes, totalAmount, serviceArea;
+  try {
+    data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(CONFIG.ORDERS_SHEET_NAME);
+    if (!sheet) { lock.releaseLock(); return jsonResponse_({status: 'error', message: 'Orders sheet not found'}); }
 
-    const bangan = Number(data.banganBoxes) || 0;
-    const kesar = Number(data.kesarBoxes) || 0;
-    const rasalu = Number(data.rasaluBoxes) || 0;
-    const himayat = Number(data.himayatBoxes) || 0;
-    const totalBoxes = Number(data.totalBoxes) || (bangan + kesar + rasalu + himayat);
-    const totalAmount = Number(data.grandTotal) || Number(data.boxTotal) ||
+    var nextRow = findNextEmptyRow_(sheet);
+    orderId = getNextOrderId_(sheet);
+    customerName = ((data.firstName || '') + ' ' + (data.lastName || '')).trim();
+    serviceArea = mapServiceArea_(data.pickupLocation);
+
+    bangan = Number(data.banganBoxes) || 0;
+    kesar = Number(data.kesarBoxes) || 0;
+    rasalu = Number(data.rasaluBoxes) || 0;
+    himayat = Number(data.himayatBoxes) || 0;
+    totalBoxes = Number(data.totalBoxes) || (bangan + kesar + rasalu + himayat);
+    totalAmount = Number(data.grandTotal) || Number(data.boxTotal) ||
       (bangan * CONFIG.PRICES.banganapalli +
        kesar * CONFIG.PRICES.kesar +
        rasalu * CONFIG.PRICES.rasalu +
        himayat * CONFIG.PRICES.himayat);
 
-    // Notes column = source + customer notes + city/state
-    const notesParts = [];
+    var notesParts = [];
     if (data.source) notesParts.push('Source: ' + data.source);
     if (data.notes) notesParts.push('Customer note: ' + data.notes);
     if (data.cityState) notesParts.push('City/State: ' + data.cityState);
 
-    // Build row matching new schema A → T
-    const rowData = [
+    var rowData = [
       orderId,                         // A  Order ID
       new Date(),                      // B  Order Date
       customerName,                    // C  Customer Name
       data.phone || '',                // D  Phone
-      data.phone || '',                // E  WhatsApp (same as phone unless customer provides different)
+      data.phone || '',                // E  WhatsApp
       data.email || '',                // F  Email
-      serviceArea,                     // G  City (= pickup service area)
-      bangan,                          // H  Banganapalli Boxes
-      kesar,                           // I  Kesar Boxes
-      rasalu,                          // J  Rasalu Boxes
-      himayat,                         // K  Himayat Boxes
-      totalBoxes,                      // L  Total Boxes
-      totalAmount,                     // M  Total $
+      serviceArea,                     // G  City
+      bangan,                          // H
+      kesar,                           // I
+      rasalu,                          // J
+      himayat,                         // K
+      totalBoxes,                      // L
+      totalAmount,                     // M
       'Pending',                       // N  Payment Status
       '',                              // O  Payment Method
       '',                              // P  Payment Ref
@@ -547,60 +560,34 @@ function doPost(e) {
       notesParts.join(' | ')           // T  Notes
     ];
     sheet.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-
-    // Send customer confirmation email via Gmail (bypasses EmailJS entirely)
-    try {
-      sendOrderConfirmationEmail_({
-        orderId: orderId,
-        customerName: customerName,
-        email: data.email,
-        phone: data.phone,
-        city: data.city || data.cityState || '',
-        pickupLocation: data.pickupLocation || (serviceArea + ' Hub'),
-        bangan: bangan,
-        kesar: kesar,
-        rasalu: rasalu,
-        himayat: himayat,
-        totalBoxes: totalBoxes,
-        totalAmount: totalAmount,
-        notes: data.notes || '',
-        howHeard: data.source || ''
-      });
-      logEmail_(orderId, customerName, 'Order Confirmation', data.email, 'SENT');
-    } catch (err) {
-      logEmail_(orderId, customerName, 'Order Confirmation', data.email, 'FAILED: ' + err.toString());
-    }
-
-    // Send owner notification email
-    try {
-      sendOwnerNotificationEmail_({
-        orderId: orderId,
-        customerName: customerName,
-        email: data.email,
-        phone: data.phone,
-        city: data.city || data.cityState || '',
-        pickupLocation: data.pickupLocation || (serviceArea + ' Hub'),
-        bangan: bangan,
-        kesar: kesar,
-        rasalu: rasalu,
-        himayat: himayat,
-        totalBoxes: totalBoxes,
-        totalAmount: totalAmount,
-        notes: data.notes || '',
-        howHeard: data.source || ''
-      });
-    } catch (err) {
-      logEmail_(orderId, customerName, 'Owner Notification', CONFIG.OWNER_EMAIL, 'FAILED: ' + err.toString());
-    }
-
-    // Log the row creation
-    try { logEmail_(orderId, customerName, 'NEW ORDER RECEIVED (via webhook)', data.email, 'ROW CREATED'); } catch (e) {}
-
-    return jsonResponse_({status: 'success', orderId: orderId, message: 'Order received'});
   } catch (err) {
-    console.error('doPost error:', err);
+    if (locked) { try { lock.releaseLock(); } catch (x) {} }
     return jsonResponse_({status: 'error', message: err.toString()});
   }
+
+  // Critical section done — release the lock so other orders proceed.
+  try { lock.releaseLock(); } catch (x) {}
+
+  // ── Send ONE email: customer confirmation, BCC'd to the owner. ──
+  // (The separate owner-notification email was redundant — the owner already
+  //  receives every order via the BCC — so it was removed to halve email
+  //  volume and speed up each submission.)
+  try {
+    sendOrderConfirmationEmail_({
+      orderId: orderId, customerName: customerName, email: data.email, phone: data.phone,
+      city: data.city || data.cityState || '',
+      pickupLocation: data.pickupLocation || (serviceArea + ' Hub'),
+      bangan: bangan, kesar: kesar, rasalu: rasalu, himayat: himayat,
+      totalBoxes: totalBoxes, totalAmount: totalAmount,
+      notes: data.notes || '', howHeard: data.source || ''
+    });
+    logEmail_(orderId, customerName, 'Order Confirmation', data.email, 'SENT');
+  } catch (err) {
+    // Email failure must NOT lose the order — the row is already saved.
+    logEmail_(orderId, customerName, 'Order Confirmation', data.email, 'FAILED: ' + err.toString());
+  }
+
+  return jsonResponse_({status: 'success', orderId: orderId, message: 'Order received'});
 }
 
 
@@ -1401,7 +1388,7 @@ function doGet(e) {
         return jsonResponse_({status: 'ok', data: getOrdersData_('pickedup')});
 
       case 'markPaymentReceived':
-        return jsonResponse_(markPaymentReceived_(orderId, role));
+        return jsonResponse_(markPaymentReceived_(orderId, role, params.method || ''));
 
       case 'markPickedUp':
         return jsonResponse_(markPickedUp_(orderId, role));
@@ -1475,8 +1462,57 @@ function generatePasswordHash() {
 }
 
 // ───────────────────────────────────────────────────────────────────
-// 🧹 SHEET CLEANUP UTILITIES (run once from the Apps Script editor)
+// 🥭 SPREADSHEET MENU (appears at the top of the sheet after refresh)
 // ───────────────────────────────────────────────────────────────────
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('🥭 TRU Mangoes')
+    .addItem('🔧 Repair sheet layout (clean)', 'repairSheet')
+    .addItem('🧹 Remove extra columns', 'cleanupExtraColumns')
+    .addItem('💳 Set Payment Method dropdown (Zelle/Cash)', 'setupPaymentMethodDropdown')
+    .addSeparator()
+    .addItem('🔐 Generate password hash', 'generatePasswordHash')
+    .addToUi();
+}
+
+// One-click clean repair: removes extra columns, fixes the 4 automation
+// headers (U–X), and re-applies the Zelle/Cash dropdown. Safe to run anytime.
+function repairSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.ORDERS_SHEET_NAME);
+  if (!sheet) { SpreadsheetApp.getUi().alert('Orders sheet not found.'); return; }
+  var msgs = [];
+
+  // 1. Remove any columns past X (24)
+  var maxCols = sheet.getMaxColumns();
+  if (maxCols > 24) {
+    sheet.deleteColumns(25, maxCols - 24);
+    msgs.push('Removed ' + (maxCols - 24) + ' extra column(s) past X.');
+  }
+
+  // 2. Re-write the 4 automation headers in U–X so they are correct & unique
+  var autoHeaders = ['Payment Received \u2705', 'Payment Email Sent', 'Picked Up \u2705', 'Pickup Email Sent'];
+  var startCol = letterToColumnNumber_(CONFIG.COL.PAYMENT_RECEIVED); // U = 21
+  autoHeaders.forEach(function(h, i) {
+    sheet.getRange(CONFIG.HEADER_ROW, startCol + i).setValue(h)
+      .setFontWeight('bold').setBackground('#2D5240').setFontColor('#FFFFFF').setHorizontalAlignment('center');
+  });
+  msgs.push('Verified automation headers in columns U\u2013X.');
+
+  // 3. Re-apply Zelle/Cash dropdown on Payment Method (O)
+  try {
+    var col = letterToColumnNumber_(CONFIG.COL.PAYMENT_METHOD);
+    var lastRow = Math.max(sheet.getMaxRows(), CONFIG.DATA_START_ROW);
+    var rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Zelle', 'Cash'], true).setAllowInvalid(false).build();
+    sheet.getRange(CONFIG.DATA_START_ROW, col, lastRow - CONFIG.DATA_START_ROW + 1, 1).setDataValidation(rule);
+    msgs.push('Applied Zelle/Cash dropdown to Payment Method.');
+  } catch (e) {}
+
+  SpreadsheetApp.getUi().alert('\u2705 Sheet repaired:\n\n\u2022 ' + msgs.join('\n\u2022 '));
+}
+
+
 
 // Removes any duplicate/extra columns beyond column X (24). Your sheet has
 // a second "Picked Up ✅" and "Pickup Email Sent" in columns Y & Z — this
@@ -1604,7 +1640,7 @@ function getOrdersData_(filter) {
   return rows;
 }
 
-function markPaymentReceived_(orderId, role) {
+function markPaymentReceived_(orderId, role, method) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.ORDERS_SHEET_NAME);
   var rowNum = findRowByOrderId_(sheet, orderId);
   if (!rowNum) return {status: 'error', message: 'Order #' + orderId + ' not found'};
@@ -1617,13 +1653,14 @@ function markPaymentReceived_(orderId, role) {
   cell.setBackground('#cfd8dc');
   // Keep the text status columns in sync so dashboard + lists always agree
   sheet.getRange(rowNum, 14).setValue('Paid');       // N = Payment Status
+  if (method) sheet.getRange(rowNum, 15).setValue(method); // O = Payment Method (Zelle/Cash)
   if (!sheet.getRange(rowNum, 17).getValue()) {
     sheet.getRange(rowNum, 17).setValue(new Date());  // Q = Payment Date
   }
   try {
     sendPaymentEmailIfNeeded_(sheet, rowNum);
   } catch (err) { /* email send is best-effort */ }
-  return {status: 'ok', message: 'Order #' + orderId + ' marked as paid'};
+  return {status: 'ok', message: 'Order #' + orderId + ' marked as paid' + (method ? ' (' + method + ')' : '')};
 }
 
 function markPickedUp_(orderId, role) {
