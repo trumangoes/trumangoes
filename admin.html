@@ -331,6 +331,11 @@
         </div>
         <input type="text" class="search-box" id="search-orders" placeholder="Search by name, order #, phone, email, city…" oninput="renderOrders()">
         <div id="orders-list" class="loading">Loading…</div>
+        <div id="danger-zone" style="display:none; margin-top:36px; padding:16px 18px; border:1px dashed #c0392b; border-radius:10px; background:#fdf3f2;">
+          <div style="font-weight:700; color:#c0392b; margin-bottom:6px;">⚠️ Danger Zone — Admin only</div>
+          <div style="font-size:13px; color:#7a3b36; margin-bottom:12px; line-height:1.5;">Permanently deletes <strong>ALL</strong> orders so you can start fresh for a new launch. Use this only to clear <strong>test</strong> data. This cannot be undone.</div>
+          <button onclick="resetAllOrdersFromGui()" style="background:#c0392b; color:#fff; border:none; padding:9px 18px; border-radius:6px; font-weight:600; cursor:pointer;">🧪 Clear ALL orders</button>
+        </div>
       </div>
     </div>
 
@@ -388,6 +393,8 @@ async function login() {
       if (userRole === 'admin') {
         badge.className = 'badge-role badge-admin';
         badge.textContent = 'ADMIN';
+        var dz = document.getElementById('danger-zone');
+        if (dz) dz.style.display = 'block';
       } else if (userRole === 'operator') {
         badge.className = 'badge-role badge-operator';
         badge.textContent = 'OPERATOR';
@@ -453,6 +460,25 @@ async function api(action, params = {}) {
   for (let k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
   const res = await fetch(url);
   return res.json();
+}
+
+async function resetAllOrdersFromGui() {
+  if (userRole !== 'admin') { toast('Admin only.'); return; }
+  const typed = prompt('⚠️ This permanently deletes ALL orders.\n\nTo confirm, type:  RESET');
+  if (typed === null) return;            // cancelled
+  if (typed.trim().toUpperCase() !== 'RESET') { toast('Cancelled — confirmation text did not match.'); return; }
+  toast('Clearing all orders…');
+  try {
+    const r = await api('resetAllOrders');
+    if (r.status === 'ok') {
+      toast('✅ Cleared ' + (r.cleared || 0) + ' order(s). Ready for launch.');
+      await refreshAll();
+    } else {
+      toast('❌ ' + (r.message || 'Reset failed'));
+    }
+  } catch (e) {
+    toast('❌ Reset failed: ' + e);
+  }
 }
 
 async function refreshAll() {
