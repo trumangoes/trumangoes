@@ -58,6 +58,7 @@
   .status-pending{background:#fff9c4;color:#A06A00}
   .status-picked{background:#bbdefb;color:#0D47A1}
   .status-awaiting{background:#ffe0b2;color:#7C4400}
+  .status-cancelled{background:#ead4d4;color:#9a2020}
   .btn{display:inline-block;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;border:none;text-decoration:none}
   .btn-primary{background:#1F4A2C;color:#fff}
   .btn-primary:hover{background:#2E6B3F}
@@ -190,6 +191,13 @@
   .cust-contact a{color:#1F4A2C;text-decoration:none;font-weight:500}
   .cust-contact a:hover{color:#C8973A;text-decoration:underline}
   .cust-contact .ico{opacity:.6;margin-right:2px}
+  .chip-row{display:inline-flex;flex-wrap:wrap;gap:6px;vertical-align:middle}
+  .chip{background:#f0ece2;color:#5b4a2a;border:1px solid #d9cdb3;padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  .chip.active{background:#1F4A2C;color:#fff;border-color:#1F4A2C}
+  .filter-hint{font-size:11px;color:#aaa;margin:-4px 0 12px}
+  .note-btn{margin-top:4px;background:none;border:1px solid #C8973A;color:#9a7320;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+  .note-btn:hover{background:#C8973A;color:#fff}
+  .note-textarea{width:100%;min-height:96px;padding:10px;border:1.5px solid #e6dfd0;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box}
   .cust-notes{font-size:11px;color:#a02020;font-style:italic;margin-top:4px;padding:4px 8px;background:#fff4d6;border-radius:4px;display:inline-block}
 
   /* LOCATION BREAKDOWN CARDS (dashboard) */
@@ -281,10 +289,9 @@
         <h2>💰 Pending Payments</h2>
         <div class="filter-bar">
           <span class="filter-label">📍 Location:</span>
-          <select id="filter-pending-loc" onchange="renderPending()">
-            <option value="">All locations</option>
-          </select>
+          <div id="chips-pending-loc" class="chip-row"></div>
         </div>
+        <div class="filter-hint">Tap locations to filter — none selected shows all.</div>
         <input type="text" class="search-box" id="search-pending" placeholder="Search by name, order #, phone, email…" oninput="renderPending()">
         <div id="pending-list" class="loading">Loading…</div>
       </div>
@@ -296,9 +303,7 @@
         <h2>✅ Paid Customers &amp; Pickups</h2>
         <div class="filter-bar">
           <span class="filter-label">📍 Location:</span>
-          <select id="filter-paid-loc" onchange="renderPaid()">
-            <option value="">All locations</option>
-          </select>
+          <div id="chips-paid-loc" class="chip-row"></div>
           <span class="filter-label" style="margin-left:14px;">🏷️ Show:</span>
           <select id="filter-paid-pickup" onchange="renderPaid()">
             <option value="">All paid</option>
@@ -306,6 +311,7 @@
             <option value="pickedup">Already picked up</option>
           </select>
         </div>
+        <div class="filter-hint">Tap locations to filter — none selected shows all.</div>
         <input type="text" class="search-box" id="search-paid" placeholder="Search by name, order #, phone, email…" oninput="renderPaid()">
         <div id="paid-list" class="loading">Loading…</div>
       </div>
@@ -317,18 +323,13 @@
         <h2>📋 All Orders</h2>
         <div class="filter-bar">
           <span class="filter-label">📍 Location:</span>
-          <select id="filter-orders-loc" onchange="renderOrders()">
-            <option value="">All locations</option>
-          </select>
-          <span class="filter-label" style="margin-left:14px;">🏷️ Status:</span>
-          <select id="filter-orders-status" onchange="renderOrders()">
-            <option value="">All statuses</option>
-            <option value="pending">Pending payment</option>
-            <option value="paid">Paid</option>
-            <option value="awaiting">Paid · awaiting pickup</option>
-            <option value="pickedup">Picked up</option>
-          </select>
+          <div id="chips-orders-loc" class="chip-row"></div>
         </div>
+        <div class="filter-bar">
+          <span class="filter-label">🏷️ Status:</span>
+          <div id="chips-orders-status" class="chip-row"></div>
+        </div>
+        <div class="filter-hint">Tap any number of locations and statuses — none selected shows all.</div>
         <input type="text" class="search-box" id="search-orders" placeholder="Search by name, order #, phone, email, city…" oninput="renderOrders()">
         <div id="orders-list" class="loading">Loading…</div>
         <div id="danger-zone" style="display:none; margin-top:36px; padding:16px 18px; border:1px dashed #c0392b; border-radius:10px; background:#fdf3f2;">
@@ -354,6 +355,19 @@
       <button onclick="confirmPayment('Cash')">💵 Cash</button>
     </div>
     <button class="modal-cancel" onclick="closePayModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Order note modal -->
+<div class="modal-overlay" id="note-modal">
+  <div class="modal-card" style="max-width:440px;text-align:left;">
+    <h3 style="text-align:center;">📝 Order Note <span id="note-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 10px;">Add or edit a note for this order. Saving replaces the note field — the current text is shown so you can add to it.</p>
+    <textarea id="note-textarea" class="note-textarea" maxlength="1000" placeholder="e.g. Paid half now, balance at pickup · prefers evening pickup"></textarea>
+    <div class="modal-pay-btns" style="margin-top:16px;">
+      <button onclick="saveNote()">💾 Save Note</button>
+    </div>
+    <button class="modal-cancel" onclick="closeNoteModal()">Cancel</button>
   </div>
 </div>
 
@@ -492,10 +506,12 @@ async function refreshAll() {
       // saved as "Frisco Hub" group together with "Frisco". Prevents duplicate
       // location cards on the dashboard.
       r.data.forEach(function(o){ o.pickupLocation = normLoc(o.pickupLocation); });
+      var isReleased = function(o){ return ['cancelled','canceled','expired'].includes(String(o.paymentStatus || '').toLowerCase()); };
       cachedData.orders  = r.data;
-      cachedData.pending = r.data.filter(o => !o.paymentReceived);
+      cachedData.pending = r.data.filter(o => !o.paymentReceived && !isReleased(o));
       cachedData.paid    = r.data.filter(o => o.paymentReceived);
       populateLocationFilters();
+      renderStatusChips();
       renderPending();
       renderPaid();
       renderOrders();
@@ -744,22 +760,46 @@ function normLoc(loc) {
   return String(loc == null ? '' : loc).replace(/\s*Hub\s*$/i, '').trim();
 }
 
+// ---- Multi-select filter chips ----
+// Selected values = the chips with the .active class inside a container.
+// Nothing selected means "show all".
+function selectedChips(containerId) {
+  return Array.from(document.querySelectorAll('#' + containerId + ' .chip.active'))
+    .map(c => c.dataset.value);
+}
+function toggleChip(el, renderFn) {
+  el.classList.toggle('active');
+  if (typeof window[renderFn] === 'function') window[renderFn]();
+}
+function renderChips(containerId, items, renderFn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const active = new Set(selectedChips(containerId)); // preserve current picks on re-render
+  el.innerHTML = items.map(it =>
+    `<button type="button" class="chip${active.has(it.value) ? ' active' : ''}" data-value="${escapeHtml(it.value)}" onclick="toggleChip(this,'${renderFn}')">${escapeHtml(it.label)}</button>`
+  ).join('');
+}
+
 function populateLocationFilters() {
-  // Collect all distinct locations from cached data
+  // Collect all distinct locations from cached data + the known list
   const all = [...cachedData.pending, ...cachedData.paid, ...cachedData.orders];
   const locs = new Set();
   all.forEach(o => { if (o.pickupLocation) locs.add(o.pickupLocation); });
-  // Add known locations to ensure they appear even if empty
   KNOWN_LOCATIONS.forEach(l => locs.add(l));
-  const sorted = [...locs].sort();
-  ['filter-pending-loc', 'filter-paid-loc', 'filter-orders-loc'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const currentValue = sel.value;
-    sel.innerHTML = '<option value="">All locations</option>' +
-      sorted.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
-    sel.value = currentValue;
-  });
+  const items = [...locs].sort().map(l => ({ value: l, label: l }));
+  renderChips('chips-pending-loc', items, 'renderPending');
+  renderChips('chips-paid-loc',    items, 'renderPaid');
+  renderChips('chips-orders-loc',  items, 'renderOrders');
+}
+
+function renderStatusChips() {
+  renderChips('chips-orders-status', [
+    { value: 'pending',   label: 'Pending payment' },
+    { value: 'paid',      label: 'Paid' },
+    { value: 'awaiting',  label: 'Awaiting pickup' },
+    { value: 'pickedup',  label: 'Picked up' },
+    { value: 'cancelled', label: 'Cancelled / Expired' }
+  ], 'renderOrders');
 }
 
 function groupByLocation(orders) {
@@ -806,16 +846,15 @@ function toggleLocSection(headerEl) {
 
 // Customer details cell (richer than before — clickable contact links)
 function custCell(r) {
-  const phoneClean = String(r.phone == null ? '' : r.phone).replace(/[^0-9]/g, '');
   const phoneDisplay = String(r.phone == null ? '' : r.phone);
   return `
     <div class="cust-name">${escapeHtml(r.customerName || '')}</div>
     <div class="cust-contact">
-      <a href="tel:${phoneClean}" title="Call">📞 ${escapeHtml(phoneDisplay)}</a>
-      ${phoneClean ? `<a href="https://wa.me/1${phoneClean}" target="_blank" title="WhatsApp">💬 WhatsApp</a>` : ''}
-      ${r.email ? `<a href="mailto:${escapeHtml(r.email)}" title="Email">✉️ ${escapeHtml(r.email)}</a>` : ''}
+      <span title="Phone">📞 ${escapeHtml(phoneDisplay)}</span>
+      ${r.email ? `<span title="Email">✉️ ${escapeHtml(r.email)}</span>` : ''}
     </div>
-    ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}`;
+    ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}
+    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button>`;
 }
 
 function escapeHtml(s) {
@@ -824,16 +863,20 @@ function escapeHtml(s) {
 }
 
 // ============ RENDER (with location grouping & filtering) ============
-function applyFilters(orders, locFilter, search, statusFilter) {
+function applyFilters(orders, locs, search, statuses) {
   let out = orders;
-  if (locFilter) out = out.filter(o => o.pickupLocation === locFilter);
-  if (statusFilter) {
+  if (locs && locs.length) out = out.filter(o => locs.includes(o.pickupLocation));
+  if (statuses && statuses.length) {
     out = out.filter(o => {
-      if (statusFilter === 'pending')  return !o.paymentReceived;
-      if (statusFilter === 'paid')     return o.paymentReceived;
-      if (statusFilter === 'awaiting') return o.paymentReceived && !o.pickedUp;
-      if (statusFilter === 'pickedup') return o.pickedUp;
-      return true;
+      const rel = ['cancelled','canceled','expired'].includes(String(o.paymentStatus || '').toLowerCase());
+      return statuses.some(function(s){
+        if (s === 'pending')   return !o.paymentReceived && !rel;
+        if (s === 'paid')      return o.paymentReceived;
+        if (s === 'awaiting')  return o.paymentReceived && !o.pickedUp;
+        if (s === 'pickedup')  return o.pickedUp;
+        if (s === 'cancelled') return rel;
+        return false;
+      });
     });
   }
   if (search) {
@@ -853,9 +896,9 @@ function applyFilters(orders, locFilter, search, statusFilter) {
 
 function renderPending() {
   const el = document.getElementById('pending-list');
-  const locFilter = document.getElementById('filter-pending-loc')?.value || '';
+  const locs = selectedChips('chips-pending-loc');
   const search = document.getElementById('search-pending')?.value || '';
-  const filtered = applyFilters(cachedData.pending, locFilter, search);
+  const filtered = applyFilters(cachedData.pending, locs, search);
   if (filtered.length === 0) {
     el.innerHTML = '<div class="empty">🎉 ' + (cachedData.pending.length === 0 ? 'No pending payments!' : 'No matches with current filters') + '</div>';
     return;
@@ -875,7 +918,7 @@ function renderPending() {
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
-              <td>${actionButton(r, 'payment')}</td>
+              <td>${actionButton(r, 'payment')}${cancelButton(r)}</td>
             </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -885,13 +928,13 @@ function renderPending() {
 function renderPaid() {
   const el = document.getElementById('paid-list');
   if (!el) return;
-  const locFilter = document.getElementById('filter-paid-loc')?.value || '';
+  const locs = selectedChips('chips-paid-loc');
   const search = document.getElementById('search-paid')?.value || '';
   const pickupFilter = document.getElementById('filter-paid-pickup')?.value || '';
   let base = cachedData.paid;
   if (pickupFilter === 'awaiting') base = base.filter(o => !o.pickedUp);
   if (pickupFilter === 'pickedup') base = base.filter(o => o.pickedUp);
-  const filtered = applyFilters(base, locFilter, search);
+  const filtered = applyFilters(base, locs, search);
   if (filtered.length === 0) {
     el.innerHTML = '<div class="empty">' + (cachedData.paid.length === 0 ? 'No paid orders yet' : 'No matches with current filters') + '</div>';
     return;
@@ -922,10 +965,10 @@ function renderPaid() {
 
 function renderOrders() {
   const el = document.getElementById('orders-list');
-  const locFilter = document.getElementById('filter-orders-loc')?.value || '';
+  const locs = selectedChips('chips-orders-loc');
   const search = document.getElementById('search-orders')?.value || '';
-  const statusFilter = document.getElementById('filter-orders-status')?.value || '';
-  const filtered = applyFilters(cachedData.orders, locFilter, search, statusFilter);
+  const statuses = selectedChips('chips-orders-status');
+  const filtered = applyFilters(cachedData.orders, locs, search, statuses);
   if (filtered.length === 0) {
     el.innerHTML = '<div class="empty">' + (cachedData.orders.length === 0 ? 'No orders yet' : 'No matches with current filters') + '</div>';
     return;
@@ -945,7 +988,7 @@ function renderOrders() {
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
-              <td>${actionButton(r, 'payment')}</td>
+              <td>${actionButton(r, 'payment')}${cancelButton(r)}</td>
               <td>${actionButton(r, 'pickup')}</td>
             </tr>`).join('')}</tbody>
         </table>
@@ -1038,6 +1081,12 @@ function renderLocationBreakdown() {
 function statusPill(text, cls) { return `<span class="status-pill ${cls}">${text}</span>`; }
 
 function actionButton(r, type) {
+  // Released holds (admin-cancelled or auto-expired) are terminal — show the
+  // status, no pay/pickup actions.
+  var st = String(r.paymentStatus || '').toLowerCase();
+  if (st === 'cancelled' || st === 'canceled' || st === 'expired') {
+    return type === 'payment' ? statusPill(String(r.paymentStatus).toUpperCase(), 'status-cancelled') : '—';
+  }
   const done = (type === 'payment') ? r.paymentReceived : r.pickedUp;
   const label = (type === 'payment') ? '💵 Mark Paid' : '📦 Mark Picked Up';
   const doneLabel = (type === 'payment') ? '✓ Paid' + (r.paymentMethod ? ' (' + r.paymentMethod + ')' : '') : '✓ Picked Up';
@@ -1058,6 +1107,16 @@ function adminOverride(r, type) {
   if (!canOverride) return '';
   const roleLabel = userRole === 'admin' ? 'Admin' : 'Operator';
   return `<button class="btn btn-override" onclick="undoAction('${r.orderId}','${type}',this)" style="margin-left:6px;font-size:11px;padding:3px 8px;">↶ Undo (${roleLabel})</button>`;
+}
+
+// Cancel button: releases an order's boxes back to inventory. Shown for unpaid
+// orders to any signed-in user; for already-PAID orders only to an admin
+// (the backend enforces the same rule). Hidden once already released.
+function cancelButton(r) {
+  var st = String(r.paymentStatus || '').toLowerCase();
+  if (st === 'cancelled' || st === 'canceled' || st === 'expired') return '';
+  if (r.paymentReceived && userRole !== 'admin') return '';
+  return `<button class="btn btn-override" onclick="cancelOrderFromGui('${r.orderId}',this)" style="margin-left:6px;font-size:11px;padding:3px 8px;">✕ Cancel</button>`;
 }
 
 // ============ ACTIONS ============
@@ -1095,6 +1154,34 @@ async function confirmPayment(method) {
   else { toast('❌ ' + r.message, true); }
 }
 
+// ---- Order note modal ----
+let _noteOrderId = null;
+function findOrderById(orderId){
+  const all = [...(cachedData.orders||[]), ...(cachedData.pending||[]), ...(cachedData.paid||[])];
+  return all.find(o => String(o.orderId) === String(orderId)) || null;
+}
+function openNoteModal(orderId){
+  _noteOrderId = orderId;
+  const o = findOrderById(orderId);
+  document.getElementById('note-modal-order').textContent = '#' + orderId;
+  document.getElementById('note-textarea').value = o ? (o.notes || '') : '';
+  document.getElementById('note-modal').style.display = 'flex';
+}
+function closeNoteModal(){
+  document.getElementById('note-modal').style.display = 'none';
+  _noteOrderId = null;
+}
+async function saveNote(){
+  const orderId = _noteOrderId;
+  if (!orderId) return;
+  const note = document.getElementById('note-textarea').value;
+  closeNoteModal();
+  toast('Saving note…');
+  const r = await api('saveNote', {orderId, note});
+  if (r.status === 'ok') { toast('✓ Note saved'); refreshAll(); }
+  else { toast('❌ ' + (r.message || 'Could not save note'), true); }
+}
+
 async function undoAction(orderId, type, btn) {
   if (!confirm(`ADMIN OVERRIDE: Unmark ${type} for Order #${orderId}? This will allow it to be re-marked.`)) return;
   btn.disabled = true; btn.textContent = '…';
@@ -1102,6 +1189,14 @@ async function undoAction(orderId, type, btn) {
   const r = await api(action, {orderId});
   if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
   else { toast('❌ ' + r.message, true); btn.disabled = false; }
+}
+
+async function cancelOrderFromGui(orderId, btn) {
+  if (!confirm(`Cancel Order #${orderId}?\n\nThis releases its boxes back to inventory and cannot be undone from here.`)) return;
+  btn.disabled = true; btn.textContent = '…';
+  const r = await api('cancelOrder', {orderId});
+  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  else { toast('❌ ' + (r.message || 'Cancel failed'), true); btn.disabled = false; btn.textContent = '✕ Cancel'; }
 }
 
 // ============ TOAST ============
