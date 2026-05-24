@@ -326,7 +326,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
-<div class="ann-bar">🥭 <span>PRE-ORDERS ARE OPEN!</span> · Reserve Your Boxes for the May 28th &amp; 29th Batches · Banganapalli, Rasalu &amp; Himayat Available Now</div>
+<div class="ann-bar">🥭 <span>PRE-ORDERS ARE OPEN!</span> · Banganapalli Available Now · Rasalu &amp; Himayat SOLD OUT · Pickup May 28th &amp; 29th</div>
 
 <!-- NAV -->
 <nav>
@@ -348,15 +348,15 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
   <div class="hero-bg-pattern"></div>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-label">🥭 PRE-ORDERS ARE OPEN · MAY 28th &amp; MAY 29th BATCHES · RESERVE NOW</div>
+      <div class="hero-label">🥭 PRE-ORDERS OPEN · BANGANAPALLI AVAILABLE NOW · RASALU &amp; HIMAYAT SOLD OUT</div>
       <h1 class="hero-h1">Farm Fresh <em>Indian</em><br>Mangoes,<br>Dallas & Beyond</h1>
-      <p class="hero-sub">🥭 <strong>Pre-orders are live!</strong> Reserve your boxes from our largest batch yet, arriving <strong>May 28 & 29</strong>. Featuring three premium varieties: <strong>Banganapalli, Rasalu, and Himayat</strong> — handpicked from trusted Indian orchards and ready for local pickup across the Dallas area. <strong>Order below to secure your boxes</strong> — first paid, first reserved.</p>
+      <p class="hero-sub">🥭 <strong>Pre-orders are live!</strong> Our boxes arrive <strong>May 28 & 29</strong>. <strong>Banganapalli is available now</strong> — <strong>Rasalu & Himayat are sold out</strong> for this batch. Handpicked from trusted Indian orchards and ready for local pickup across the Dallas area. <strong>Order below to secure your boxes</strong> — first paid, first reserved.</p>
       <div class="hero-btns">
         <a href="#order" class="btn-primary">Reserve Your Boxes Now</a>
         <a href="#varieties" class="btn-outline">Explore Varieties</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><div class="stat-n">3</div><div class="stat-l">Varieties This Batch</div></div>
+        <div class="stat"><div class="stat-n">1</div><div class="stat-l">Variety Available Now</div></div>
         <div class="stat"><div class="stat-n">May 28-29</div><div class="stat-l">Fresh Arrival</div></div>
         <div class="stat"><div class="stat-n">Dallas</div><div class="stat-l">Local Pickup</div></div>
       </div>
@@ -633,7 +633,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <div class="form-header">
         <div class="sec-eyebrow" style="justify-content:center"><span>Reserve Now</span></div>
         <h2 class="sec-title" style="text-align:center">Pre-Order Your <em>TRU Mangoes</em></h2>
-        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px"><strong style="color:#1F4A2C;">🥭 Pre-orders are open for the May 28 &amp; 29 batches!</strong> Reserve your boxes below — Banganapalli, Rasalu, and Himayat are available now. First paid, first reserved.</p>
+        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px"><strong style="color:#1F4A2C;">🥭 Pre-orders are open!</strong> Reserve your boxes below — <strong style="color:#1F4A2C;">Banganapalli is available now</strong>; Rasalu &amp; Himayat are sold out for this batch. Pickup May 28 &amp; 29. First paid, first reserved.</p>
       </div>
 
       <!-- SOLD OUT / WAITLIST PANEL (replaces live order form) -->
@@ -1049,7 +1049,7 @@ const URL='https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_Ja
 // is reached. These values are just the initial state before that fetch
 // returns. Kesar stays sold out (not in this batch).
 const LIMIT_PER_BATCH=50;
-const SOLD_OUT={bangan:false,rasalu:false,himayat:false,kesar:true};
+const SOLD_OUT={bangan:false,rasalu:true,himayat:true,kesar:true};
 let q={bangan:0,kesar:0,rasalu:0,himayat:0},dc=0,pickupArea='';
 function chg(t,d){
   if(SOLD_OUT[t]) return;
@@ -1289,8 +1289,11 @@ function applySoldOutState(){
         ov.innerHTML='<span style="background:#fff;color:#A61E1E;">SOLD OUT</span>';
         imgWrap.appendChild(ov);
       }
-      var badge=showcase.querySelector('.v-content > div[style*="READY TO PRE-ORDER"]');
-      if(badge){badge.style.background='#A61E1E';badge.textContent='SOLD OUT FOR THIS BATCH';}
+      var badge=null;
+      showcase.querySelectorAll('.v-content > div').forEach(function(d){
+        if(/PRE-ORDER/i.test(d.textContent)) badge=d;
+      });
+      if(badge){badge.style.background='#A61E1E';badge.style.color='#fff';badge.textContent='SOLD OUT FOR THIS BATCH';}
       var btn=showcase.querySelector('.v-btn');
       if(btn){
         btn.textContent='Sold Out';
