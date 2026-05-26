@@ -437,15 +437,15 @@
   </div>
 </div>
 
-<!-- Custom order total (price override) modal -->
+<!-- Per-variety price editor modal -->
 <div class="modal-overlay" id="price-modal">
-  <div class="modal-card" style="max-width:420px;text-align:left">
-    <h3 style="text-align:center">💲 Edit Order Total <span id="price-modal-order">#0</span></h3>
-    <p style="text-align:left;margin:0 0 10px">Set a custom total for this order (bulk/wholesale or special pricing). Current total: <strong id="price-current"></strong>. This changes only the dollar amount — box counts stay the same.</p>
-    <label style="font-size:13px;color:#555;display:block;margin-bottom:6px">New total ($)</label>
-    <input id="price-input" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e6dfd0;border-radius:8px;font-size:16px;box-sizing:border-box">
+  <div class="modal-card" style="max-width:460px;text-align:left">
+    <h3 style="text-align:center">💲 Edit Pricing <span id="price-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 12px">Set the price per box for each variety on this order (e.g. bulk Banganapalli at $43). The total recalculates automatically. Box counts don't change.</p>
+    <div id="price-rows"></div>
+    <div id="price-newtotal" style="text-align:right;font-weight:700;color:#1F4A2C;margin-top:12px"></div>
     <div class="modal-pay-btns" style="margin-top:16px">
-      <button onclick="submitPrice()">💾 Save total</button>
+      <button onclick="submitPrice()">💾 Save pricing</button>
     </div>
     <button class="modal-cancel" onclick="closePriceModal()">Cancel</button>
   </div>
@@ -1305,24 +1305,50 @@ function findOrderById(orderId){
   return all.find(o => String(o.orderId) === String(orderId)) || null;
 }
 let _priceOrderId = null;
+const PRICE_VARS = [
+  {k:'bangan',  n:'Banganapalli', p:47},
+  {k:'rasalu',  n:'Rasalu',       p:52},
+  {k:'himayat', n:'Himayat',      p:55},
+  {k:'kesar',   n:'Kesar',        p:55}
+];
 function openPriceModal(orderId){
   if (userRole !== 'admin') { toast('Admin only — price changes require the admin login.', true); return; }
   _priceOrderId = orderId;
   const o = findOrderById(orderId);
   document.getElementById('price-modal-order').textContent = '#' + orderId;
-  document.getElementById('price-current').textContent = o ? ('$' + (o.totalAmount || 0)) : '—';
-  document.getElementById('price-input').value = o ? (o.totalAmount || 0) : '';
+  const shown = PRICE_VARS.filter(function(v){ return Number(o && o[v.k]) > 0; });
+  document.getElementById('price-rows').innerHTML = shown.length ? shown.map(function(v){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e9d8">'+
+      '<span>'+v.n+' <span style="color:#999;font-size:12px">\u00d7 '+o[v.k]+' box'+(o[v.k]>1?'es':'')+'</span></span>'+
+      '<span style="font-size:13px;color:#555">$<input type="number" min="0" step="0.01" value="'+v.p+'" data-k="'+v.k+'" data-b="'+o[v.k]+'" oninput="priceRecalc()" style="width:72px;padding:6px;border:1px solid #e6dfd0;border-radius:6px;text-align:center;margin:0 4px">/box</span>'+
+    '</div>';
+  }).join('') : '<div style="color:#999">No items on this order.</div>';
+  priceRecalc();
   document.getElementById('price-modal').style.display = 'flex';
+}
+function priceRecalc(){
+  var tot=0;
+  document.querySelectorAll('#price-rows input[type=number]').forEach(function(inp){
+    tot += (Number(inp.value)||0) * (Number(inp.dataset.b)||0);
+  });
+  tot=Math.round(tot*100)/100;
+  document.getElementById('price-newtotal').textContent = 'New total: $' + tot;
 }
 function closePriceModal(){ document.getElementById('price-modal').style.display = 'none'; _priceOrderId = null; }
 async function submitPrice(){
   const orderId = _priceOrderId; if (!orderId) return;
-  const amt = Number(document.getElementById('price-input').value);
-  if (isNaN(amt) || amt < 0) { toast('Enter a valid dollar amount.', true); return; }
-  if (!confirm('Set order #' + orderId + ' total to $' + amt + '?')) return;
+  var tot=0, parts=[];
+  document.querySelectorAll('#price-rows input[type=number]').forEach(function(inp){
+    var price=Number(inp.value)||0, boxes=Number(inp.dataset.b)||0;
+    tot += price*boxes;
+    parts.push(inp.dataset.k+'@$'+price);
+  });
+  tot=Math.round(tot*100)/100;
+  if (isNaN(tot) || tot < 0) { toast('Enter valid prices.', true); return; }
+  if (!confirm('Set order #' + orderId + ' total to $' + tot + '?')) return;
   closePriceModal();
   toast('Updating total…');
-  const r = await api('setOrderTotal', {orderId, amount: amt});
+  const r = await api('setOrderTotal', {orderId, amount: tot, detail: parts.join(', ')});
   if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
   else { toast('❌ ' + (r.message || 'Could not update total'), true); }
 }
