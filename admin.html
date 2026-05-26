@@ -95,6 +95,11 @@
     .panel{padding:14px}
     .data-table{font-size:12px}
     .data-table th,.data-table td{padding:8px 5px}
+    /* Order rows -> stacked cards on phones so every column & button is reachable */
+    .loc-body .data-table thead{display:none}
+    .loc-body .data-table,.loc-body .data-table tbody,.loc-body .data-table tr,.loc-body .data-table td{display:block;width:100%;box-sizing:border-box}
+    .loc-body .data-table tr{border-bottom:2px solid #eee;padding:6px 2px}
+    .loc-body .data-table td{padding:4px 12px;border-bottom:none;text-align:left}
     .stat-value{font-size:24px}
   }
 
