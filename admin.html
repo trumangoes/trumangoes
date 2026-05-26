@@ -296,6 +296,12 @@
         <h2>📍 By Pickup Location</h2>
         <div id="dashboard-locations" class="loading">Loading…</div>
       </div>
+
+      <!-- Boxes by location chart (paid vs unpaid) -->
+      <div class="panel">
+        <h2>📊 Boxes by Location (paid vs unpaid)</h2>
+        <div style="position:relative;height:300px"><canvas id="dashboard-loc-chart"></canvas></div>
+      </div>
     </div>
 
     <!-- PENDING PAYMENTS -->
@@ -596,6 +602,7 @@ async function refreshAll() {
       renderOrders();
       renderLocationBreakdown();
       renderReports();
+      renderDashboardLocChart_();
       updateCount('pending', cachedData.pending.length);
       updateCount('paid',    cachedData.paid.length);
       updateCount('orders',  cachedData.orders.length);
@@ -1387,6 +1394,35 @@ async function cancelEntireFromAdjust(){
   var r=await api('adjustOrder', {orderId:orderId, bangan:0, rasalu:0, himayat:0, kesar:0, notify:notify});
   if(r.status==='ok'){ toast('✓ '+r.message); refreshAll(); }
   else { toast('❌ '+(r.message||'Cancel failed'), true); }
+}
+
+// Dashboard chart: boxes per pickup location, stacked paid vs unpaid.
+function renderDashboardLocChart_(){
+  var cv=document.getElementById('dashboard-loc-chart');
+  if(!cv || !window.Chart) return;
+  var orders=cachedData.orders||[];
+  var locs=KNOWN_LOCATIONS.slice();
+  orders.forEach(function(o){ var l=o.pickupLocation||'Unspecified'; if(locs.indexOf(l)<0) locs.push(l); });
+  var paid={}, unpaid={};
+  locs.forEach(function(l){ paid[l]=0; unpaid[l]=0; });
+  orders.forEach(function(o){
+    var l=o.pickupLocation||'Unspecified';
+    if(paid[l]===undefined){ paid[l]=0; unpaid[l]=0; }
+    var b=Number(o.totalBoxes)||0;
+    if(o.paymentReceived) paid[l]+=b;
+    else if(!['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase())) unpaid[l]+=b;
+  });
+  if(window._dashLocChart){ try{ window._dashLocChart.destroy(); }catch(e){} }
+  window._dashLocChart=new Chart(cv.getContext('2d'),{
+    type:'bar',
+    data:{ labels:locs, datasets:[
+      {label:'Paid',   data:locs.map(function(l){return paid[l];}),   backgroundColor:'#2D6B4D'},
+      {label:'Unpaid', data:locs.map(function(l){return unpaid[l];}), backgroundColor:'#C8973A'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}},
+      plugins:{legend:{position:'top'}}}
+  });
 }
 
 function renderReports(){
