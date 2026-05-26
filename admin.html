@@ -1396,6 +1396,25 @@ async function cancelEntireFromAdjust(){
   else { toast('❌ '+(r.message||'Cancel failed'), true); }
 }
 
+// Click-through from a chart segment to the matching filtered list.
+function jumpToOrders(location, statusValue){
+  showTab('orders');
+  var tb=document.querySelectorAll('.tabs button'); tb.forEach(function(b){ b.classList.remove('active'); }); if(tb[3]) tb[3].classList.add('active');
+  var locEl=document.getElementById('chips-orders-loc');
+  if(locEl){ locEl.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', c.dataset.value===location); }); }
+  var stEl=document.getElementById('chips-orders-status');
+  if(stEl){ stEl.querySelectorAll('.chip').forEach(function(c){ c.classList.toggle('active', c.dataset.value===statusValue); }); }
+  var sb=document.getElementById('search-orders'); if(sb) sb.value='';
+  renderOrders();
+  var el=document.getElementById('orders-list'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function jumpToReportDetail(varKey, statusValue){
+  var vsel=document.getElementById('report-var-filter'); if(vsel && varKey) vsel.value=varKey;
+  var ssel=document.getElementById('report-status-filter'); if(ssel) ssel.value=statusValue;
+  renderReports();
+  var host=document.getElementById('reports-customers'); if(host) host.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
 // Dashboard chart: boxes per pickup location, stacked paid vs unpaid.
 function renderDashboardLocChart_(){
   var cv=document.getElementById('dashboard-loc-chart');
@@ -1420,6 +1439,8 @@ function renderDashboardLocChart_(){
       {label:'Unpaid', data:locs.map(function(l){return unpaid[l];}), backgroundColor:'#C8973A'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
+      onClick:function(evt, els){ if(!els||!els.length) return; var e=els[0]; jumpToOrders(locs[e.index], e.datasetIndex===0?'paid':'pending'); },
+      onHover:function(evt, els){ if(evt&&evt.native&&evt.native.target) evt.native.target.style.cursor=(els&&els.length)?'pointer':'default'; },
       scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}},
       plugins:{legend:{position:'top'}}}
   });
@@ -1540,6 +1561,8 @@ function renderReportChart_(agg, VARS){
           {label:'Unpaid', data:VARS.map(function(v){return agg[v.key].unpaid;}), backgroundColor:'#C8973A'}
         ]},
       options:{responsive:true,maintainAspectRatio:false,
+        onClick:function(evt, els){ if(!els||!els.length) return; var e=els[0]; var key=(VARS[e.index]||{}).key||''; jumpToReportDetail(key, e.datasetIndex===0?'paid':'unpaid'); },
+        onHover:function(evt, els){ if(evt&&evt.native&&evt.native.target) evt.native.target.style.cursor=(els&&els.length)?'pointer':'default'; },
         scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}},
         plugins:{legend:{position:'top'}}}
     };
@@ -1550,6 +1573,8 @@ function renderReportChart_(agg, VARS){
       data:{ labels:['Paid','Unpaid'],
         datasets:[{ data:[agg[vf].paid, agg[vf].unpaid], backgroundColor:['#2D6B4D','#C8973A'] }]},
       options:{responsive:true,maintainAspectRatio:false,
+        onClick:function(evt, els){ if(!els||!els.length) return; jumpToReportDetail(vf, els[0].index===0?'paid':'unpaid'); },
+        onHover:function(evt, els){ if(evt&&evt.native&&evt.native.target) evt.native.target.style.cursor=(els&&els.length)?'pointer':'default'; },
         plugins:{legend:{position:'top'}, title:{display:true, text:(v.name||'')+' — paid vs unpaid boxes'}}}
     };
   }
