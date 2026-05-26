@@ -211,6 +211,19 @@
   .loc-stat-value.paid{color:#2D6B4D}
   .loc-stat-value.pending{color:#C8973A}
   .loc-stat-value.pickedup{color:#0D47A1}
+
+  /* REPORTS TAB */
+  .rep-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rep-toolbar select{padding:8px 10px;border:1px solid #e6dfd0;border-radius:8px;font-size:14px;background:#fff;color:#2a1500}
+  .split-bar{display:flex;height:24px;border-radius:12px;overflow:hidden;border:1px solid #f0e9d8;background:#FBF6ED;flex:1}
+  .split-paid{background:linear-gradient(90deg,#2D6B4D,#3a8a63);min-width:2px}
+  .split-unpaid{background:linear-gradient(90deg,#F5C842,#C8973A);min-width:2px}
+  .rep-legend{font-size:12px;color:#666;display:flex;gap:16px;margin:0 0 12px;flex-wrap:wrap}
+  .rep-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .matrix td.num{text-align:center}
+  .matrix .paidnum{color:#2D6B4D;font-weight:700}
+  .matrix .unpaidnum{color:#C8973A}
+  .matrix .tot,.matrix tfoot td{background:#f7f4ec}
 </style>
 </head>
 <body>
@@ -243,6 +256,7 @@
     <button onclick="showTab('pending')">💰 Pending Payments <span id="cnt-pending" class="badge-count zero">0</span></button>
     <button onclick="showTab('paid')">✅ Paid &amp; Pickups <span id="cnt-paid" class="badge-count zero">0</span></button>
     <button onclick="showTab('orders')">📋 All Orders <span id="cnt-orders" class="badge-count zero">0</span></button>
+    <button onclick="showTab('reports')">📈 Reports</button>
   </div>
 
   <div class="content">
@@ -337,6 +351,29 @@
           <div style="font-size:13px; color:#7a3b36; margin-bottom:12px; line-height:1.5;">Permanently deletes <strong>ALL</strong> orders so you can start fresh for a new launch. Use this only to clear <strong>test</strong> data. This cannot be undone.</div>
           <button onclick="resetAllOrdersFromGui()" style="background:#c0392b; color:#fff; border:none; padding:9px 18px; border-radius:6px; font-weight:600; cursor:pointer;">🧪 Clear ALL orders</button>
         </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="tab-reports" class="tab-content" style="display:none">
+      <div class="panel">
+        <div class="rep-toolbar">
+          <span class="filter-label">📍 Location:</span>
+          <select id="report-loc-filter" onchange="renderReports()"></select>
+          <span class="filter-hint" style="margin:0">Filters the whole report to one pickup location.</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>🥭 Paid vs Unpaid by Variety</h2>
+        <div id="reports-variety" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>📊 Variety × Location</h2>
+        <div id="reports-matrix" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>📦 Pickup Packing List (paid boxes only)</h2>
+        <div id="reports-packing" class="loading">Loading…</div>
       </div>
     </div>
 
@@ -450,11 +487,12 @@ function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).style.display = 'block';
+  if (name === 'reports') renderReports();
   if (typeof event !== 'undefined' && event && event.target) {
     event.target.classList.add('active');
   } else {
     // Programmatic call: highlight by tab name
-    const map = {dashboard:0, pending:1, paid:2, orders:3};
+    const map = {dashboard:0, pending:1, paid:2, orders:3, reports:4};
     const btns = document.querySelectorAll('.tabs button');
     if (btns[map[name]]) btns[map[name]].classList.add('active');
   }
@@ -516,6 +554,7 @@ async function refreshAll() {
       renderPaid();
       renderOrders();
       renderLocationBreakdown();
+      renderReports();
       updateCount('pending', cachedData.pending.length);
       updateCount('paid',    cachedData.paid.length);
       updateCount('orders',  cachedData.orders.length);
@@ -1205,6 +1244,102 @@ function toast(msg, isError = false) {
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============ REPORTS TAB (computed client-side from cachedData.orders) ============
+function renderReports(){
+  var sel = document.getElementById('report-loc-filter');
+  var orders = (cachedData.orders || []).slice();
+
+  var extra = [];
+  orders.forEach(function(o){ var l=o.pickupLocation||'Unspecified'; if(KNOWN_LOCATIONS.indexOf(l)<0 && extra.indexOf(l)<0) extra.push(l); });
+  var allLocs = KNOWN_LOCATIONS.concat(extra);
+
+  if(sel && !sel._built){
+    sel.innerHTML = '<option value="">All locations</option>' +
+      allLocs.map(function(l){return '<option value="'+escapeHtml(l)+'">'+escapeHtml(l)+'</option>';}).join('');
+    sel._built = true;
+  }
+  var locFilter = sel ? sel.value : '';
+  var data = locFilter ? orders.filter(function(o){ return (o.pickupLocation||'Unspecified')===locFilter; }) : orders;
+  var useLocs = locFilter ? [locFilter] : allLocs;
+
+  var VARS = [
+    {key:'bangan', name:'Banganapalli', price:47},
+    {key:'rasalu', name:'Rasalu',       price:52},
+    {key:'himayat',name:'Himayat',      price:55},
+    {key:'kesar',  name:'Kesar',        price:55}
+  ];
+
+  // ---- A: paid vs unpaid per variety ----
+  var agg={}; VARS.forEach(function(v){ agg[v.key]={paid:0,unpaid:0}; });
+  data.forEach(function(o){
+    VARS.forEach(function(v){
+      var n=Number(o[v.key])||0; if(!n) return;
+      if(o.paymentReceived) agg[v.key].paid+=n; else agg[v.key].unpaid+=n;
+    });
+  });
+  var maxTot=1; VARS.forEach(function(v){ maxTot=Math.max(maxTot, agg[v.key].paid+agg[v.key].unpaid); });
+  var aEl=document.getElementById('reports-variety');
+  if(aEl){
+    aEl.innerHTML =
+      '<div class="rep-legend"><span><i style="background:#2D6B4D"></i>Paid</span><span><i style="background:#C8973A"></i>Unpaid</span></div>' +
+      '<div class="var-list">' + VARS.map(function(v){
+        var a=agg[v.key], tot=a.paid+a.unpaid;
+        return '<div class="bar-row">' +
+          '<div class="bar-name">🥭 '+v.name+'</div>' +
+          '<div class="split-bar">' +
+            (a.paid?'<div class="split-paid" style="width:'+(a.paid/maxTot*100)+'%"></div>':'') +
+            (a.unpaid?'<div class="split-unpaid" style="width:'+(a.unpaid/maxTot*100)+'%"></div>':'') +
+          '</div>' +
+          '<div class="bar-stats"><strong>'+tot+'</strong> boxes<br>' +
+            '<span style="color:#2D6B4D">'+a.paid+' paid</span> · <span style="color:#C8973A">'+a.unpaid+' unpaid</span></div>' +
+        '</div>';
+      }).join('') + '</div>';
+  }
+
+  // ---- B & C: variety x location cells ----
+  function blank(){ var m={}; VARS.forEach(function(v){ m[v.key]={paid:0,unpaid:0}; }); return m; }
+  var cells={}; useLocs.forEach(function(l){ cells[l]=blank(); });
+  data.forEach(function(o){
+    var l=o.pickupLocation||'Unspecified'; if(!cells[l]) cells[l]=blank();
+    VARS.forEach(function(v){ var n=Number(o[v.key])||0; if(!n) return; if(o.paymentReceived) cells[l][v.key].paid+=n; else cells[l][v.key].unpaid+=n; });
+  });
+
+  var bEl=document.getElementById('reports-matrix');
+  if(bEl){
+    var head='<tr><th>Location</th>'+VARS.map(function(v){return '<th>'+v.name+'</th>';}).join('')+'<th>Total</th></tr>';
+    var body=Object.keys(cells).map(function(l){
+      var rp=0,ru=0;
+      var tds=VARS.map(function(v){
+        var c=cells[l][v.key]; rp+=c.paid; ru+=c.unpaid;
+        return '<td class="num"><span class="paidnum">'+c.paid+'</span>'+(c.unpaid?' <span class="unpaidnum">('+c.unpaid+')</span>':'')+'</td>';
+      }).join('');
+      return '<tr><td>📍 '+escapeHtml(l)+'</td>'+tds+'<td class="num tot"><span class="paidnum">'+rp+'</span>'+(ru?' <span class="unpaidnum">('+ru+')</span>':'')+'</td></tr>';
+    }).join('');
+    var foot='<tr><td class="tot">All</td>'+VARS.map(function(v){
+      var p=0,u=0; Object.keys(cells).forEach(function(l){ p+=cells[l][v.key].paid; u+=cells[l][v.key].unpaid; });
+      return '<td class="num tot"><span class="paidnum">'+p+'</span>'+(u?' <span class="unpaidnum">('+u+')</span>':'')+'</td>';
+    }).join('')+'<td class="num tot"></td></tr>';
+    bEl.innerHTML='<div style="overflow-x:auto"><table class="data-table matrix">'+head+body+foot+'</table></div>'+
+      '<div class="rep-legend" style="margin-top:10px"><span><i style="background:#2D6B4D"></i>paid boxes</span><span><i style="background:#C8973A"></i>(unpaid boxes)</span></div>';
+  }
+
+  var cEl=document.getElementById('reports-packing');
+  if(cEl){
+    cEl.innerHTML='<div class="money-grid">'+useLocs.map(function(l){
+      var c=cells[l]||blank();
+      var items=VARS.filter(function(v){return c[v.key].paid>0;}).map(function(v){
+        return '<li>'+v.name+': <strong>'+c[v.key].paid+'</strong> box'+(c[v.key].paid>1?'es':'')+'</li>';
+      }).join('');
+      var tot=VARS.reduce(function(s,v){return s+c[v.key].paid;},0);
+      return '<div class="money-card" style="text-align:left">'+
+        '<div class="money-label">📍 '+escapeHtml(l)+' — '+tot+' paid box'+(tot===1?'':'es')+'</div>'+
+        (tot>0?'<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.7">'+items+'</ul>'
+              :'<div style="color:#999;font-size:13px;margin-top:6px">No paid boxes yet</div>')+
+      '</div>';
+    }).join('')+'</div>';
+  }
 }
 </script>
 
