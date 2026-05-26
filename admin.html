@@ -1087,7 +1087,17 @@ function renderOrders() {
     return;
   }
   const groups = groupByLocation(filtered);
-  el.innerHTML = Object.entries(groups).map(([loc, orders]) => `
+  const oBoxes=filtered.reduce((s,o)=>s+(o.totalBoxes||0),0);
+  const oRev=filtered.reduce((s,o)=>s+(o.totalAmount||0),0);
+  const oUnpaid=filtered.filter(o=>!o.paymentReceived && !['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase()));
+  const oUnpaidAmt=oUnpaid.reduce((s,o)=>s+(o.totalAmount||0),0);
+  const ordBar = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">`+
+    `<span style="background:#1F4A2C;color:#fff;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${filtered.length}</strong> orders</span>`+
+    `<span style="background:#FBF6ED;border:1px solid #e6dfd0;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${oBoxes}</strong> boxes</span>`+
+    `<span style="background:#FBF6ED;border:1px solid #e6dfd0;padding:7px 13px;border-radius:8px;font-size:13px"><strong>$${formatNum(oRev)}</strong> total</span>`+
+    `<span style="background:#FFF4D6;border:1px solid #C8973A;color:#8a5a00;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${oUnpaid.length}</strong> unpaid · $${formatNum(oUnpaidAmt)} outstanding</span>`+
+    `</div>`;
+  el.innerHTML = ordBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
       ${locHeader(loc, orders)}
       <div class="loc-body">
