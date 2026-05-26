@@ -906,6 +906,9 @@ function groupByLocation(orders) {
 function locHeader(loc, orders) {
   const total = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   const boxes = orders.reduce((sum, o) => sum + (o.totalBoxes || 0), 0);
+  const unpaidList = orders.filter(o => !o.paymentReceived &&
+    !['cancelled','canceled','expired'].includes(String(o.paymentStatus || '').toLowerCase()));
+  const unpaidAmt = unpaidList.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   return `
     <div class="loc-header" onclick="toggleLocSection(this)">
       <div class="loc-title"><span class="pin">📍</span> ${escapeHtml(loc)}</div>
@@ -913,6 +916,7 @@ function locHeader(loc, orders) {
         <span><strong>${orders.length}</strong> order${orders.length !== 1 ? 's' : ''}</span>
         <span><strong>${boxes}</strong> box${boxes !== 1 ? 'es' : ''}</span>
         <span><strong>$${formatNum(total)}</strong></span>
+        ${unpaidList.length ? `<span style="color:#F5C842"><strong>${unpaidList.length}</strong> unpaid · $${formatNum(unpaidAmt)}</span>` : ''}
         <span class="loc-toggle">▼</span>
       </div>
     </div>`;
@@ -974,6 +978,28 @@ function applyFilters(orders, locs, search, statuses) {
   return out;
 }
 
+// Copy phone numbers / emails of the currently-filtered pending (unpaid) list,
+// so you can paste into a WhatsApp broadcast or an email BCC for follow-ups.
+function _filteredPending(){
+  const locs = selectedChips('chips-pending-loc');
+  const search = (document.getElementById('search-pending')||{}).value || '';
+  return applyFilters(cachedData.pending, locs, search);
+}
+function copyPendingContacts(type){
+  const list=_filteredPending();
+  if(!list.length){ toast('No pending customers to copy.'); return; }
+  const vals=list.map(function(o){ return type==='email' ? String(o.email||'') : String(o.phone||''); })
+                 .map(function(s){ return s.trim(); }).filter(Boolean);
+  const uniq=[]; vals.forEach(function(v){ if(uniq.indexOf(v)<0) uniq.push(v); });
+  const text=uniq.join(type==='email' ? ', ' : '\n');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(
+      function(){ toast('✓ Copied '+uniq.length+' '+(type==='email'?'emails':'phone numbers')); },
+      function(){ toast('Could not copy — browser blocked clipboard.', true); }
+    );
+  } else { toast('Clipboard not available in this browser.', true); }
+}
+
 function renderPending() {
   const el = document.getElementById('pending-list');
   const locs = selectedChips('chips-pending-loc');
@@ -984,7 +1010,14 @@ function renderPending() {
     return;
   }
   const groups = groupByLocation(filtered);
-  el.innerHTML = Object.entries(groups).map(([loc, orders]) => `
+  const outstanding = filtered.reduce((s,o)=>s+(o.totalAmount||0),0);
+  const pendBar = `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">`+
+    `<span style="font-size:14px;color:#666"><strong>${filtered.length}</strong> pending · <strong style="color:#C8973A">$${formatNum(outstanding)}</strong> outstanding</span>`+
+    `<span style="flex:1"></span>`+
+    `<button onclick="copyPendingContacts('phone')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy phones</button>`+
+    `<button onclick="copyPendingContacts('email')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy emails</button>`+
+    `</div>`;
+  el.innerHTML = pendBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
       ${locHeader(loc, orders)}
       <div class="loc-body">
