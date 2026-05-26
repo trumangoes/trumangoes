@@ -225,6 +225,7 @@
   .matrix .unpaidnum{color:#C8973A}
   .matrix .tot,.matrix tfoot td{background:#f7f4ec}
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -360,8 +361,26 @@
         <div class="rep-toolbar">
           <span class="filter-label">📍 Location:</span>
           <select id="report-loc-filter" onchange="renderReports()"></select>
-          <span class="filter-hint" style="margin:0">Filters the whole report to one pickup location.</span>
+          <span class="filter-label">🥭 Variety:</span>
+          <select id="report-var-filter" onchange="renderReports()">
+            <option value="all">All varieties</option>
+            <option value="bangan">Banganapalli</option>
+            <option value="rasalu">Rasalu</option>
+            <option value="himayat">Himayat</option>
+            <option value="kesar">Kesar</option>
+          </select>
+          <span class="filter-label">🏷️ Status:</span>
+          <select id="report-status-filter" onchange="renderReports()">
+            <option value="all">All</option>
+            <option value="unpaid">Unpaid only</option>
+            <option value="paid">Paid only</option>
+          </select>
         </div>
+        <div class="filter-hint">Filters apply to the chart, the customer list, and the breakdowns below.</div>
+      </div>
+      <div class="panel">
+        <h2>📈 Chart</h2>
+        <div style="position:relative;height:300px"><canvas id="reports-chart"></canvas></div>
       </div>
       <div class="panel">
         <h2>🥭 Paid vs Unpaid by Variety</h2>
@@ -370,6 +389,10 @@
       <div class="panel">
         <h2>📊 Variety × Location</h2>
         <div id="reports-matrix" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>👥 Customer Details (filter & cancel unpaid)</h2>
+        <div id="reports-customers" class="loading">Loading…</div>
       </div>
       <div class="panel">
         <h2>📦 Pickup Packing List (paid boxes only)</h2>
@@ -405,6 +428,24 @@
       <button onclick="saveNote()">💾 Save Note</button>
     </div>
     <button class="modal-cancel" onclick="closeNoteModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Edit / partial-cancel items modal -->
+<div class="modal-overlay" id="adjust-modal">
+  <div class="modal-card" style="max-width:480px;text-align:left">
+    <h3 style="text-align:center">✏️ Edit / Cancel Items <span id="adjust-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 12px">Set how many boxes of each variety to <strong>keep</strong>. Lower a number to cancel some, set a variety to <strong>0</strong> to drop just that one, or set everything to 0 to cancel the whole order.</p>
+    <div id="adjust-rows"></div>
+    <div id="adjust-newtotal" style="text-align:right;font-weight:700;color:#1F4A2C;margin-top:12px"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-top:14px;cursor:pointer">
+      <input type="checkbox" id="adjust-notify"> 📧 Email the customer about this change
+    </label>
+    <div class="modal-pay-btns" style="margin-top:16px">
+      <button onclick="submitAdjust()">💾 Save changes</button>
+    </div>
+    <button onclick="cancelEntireFromAdjust()" style="margin-top:10px;width:100%;background:#c0392b;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer">✕ Cancel ENTIRE order</button>
+    <button class="modal-cancel" onclick="closeAdjustModal()">Close</button>
   </div>
 </div>
 
@@ -1247,6 +1288,64 @@ function toast(msg, isError = false) {
 }
 
 // ============ REPORTS TAB (computed client-side from cachedData.orders) ============
+// ===== Edit / partial-cancel items modal =====
+let _adjOrderId = null;
+function openAdjustModal(orderId){
+  const o = findOrderById(orderId);
+  if(!o){ toast('Order not found — hit Refresh and try again.', true); return; }
+  _adjOrderId = orderId;
+  document.getElementById('adjust-modal-order').textContent = '#' + orderId;
+  const VARS=[{k:'bangan',n:'Banganapalli',p:47},{k:'rasalu',n:'Rasalu',p:52},{k:'himayat',n:'Himayat',p:55},{k:'kesar',n:'Kesar',p:55}];
+  const shown = VARS.filter(function(v){ return Number(o[v.k])>0; });
+  document.getElementById('adjust-rows').innerHTML = shown.length ? shown.map(function(v){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e9d8">'+
+      '<span>'+v.n+' <span style="color:#999;font-size:12px">($'+v.p+'/box)</span></span>'+
+      '<span style="font-size:13px;color:#555">keep <input type="number" min="0" max="'+o[v.k]+'" value="'+o[v.k]+'" data-k="'+v.k+'" data-p="'+v.p+'" oninput="adjRecalc()" style="width:64px;padding:6px;border:1px solid #e6dfd0;border-radius:6px;text-align:center;margin:0 4px"> of '+o[v.k]+'</span>'+
+    '</div>';
+  }).join('') : '<div style="color:#999">No items on this order.</div>';
+  document.getElementById('adjust-notify').checked = false;
+  adjRecalc();
+  document.getElementById('adjust-modal').style.display = 'flex';
+}
+function adjRecalc(){
+  var tot=0, boxes=0;
+  document.querySelectorAll('#adjust-rows input[type=number]').forEach(function(inp){
+    var q=Math.max(0, parseInt(inp.value||'0',10)||0), p=Number(inp.dataset.p);
+    tot+=q*p; boxes+=q;
+  });
+  document.getElementById('adjust-newtotal').textContent =
+    'New total: $'+tot+' ('+boxes+' box'+(boxes===1?'':'es')+')'+(boxes===0?' — whole order will be cancelled':'');
+}
+function closeAdjustModal(){ document.getElementById('adjust-modal').style.display='none'; _adjOrderId=null; }
+function _adjCollect(){
+  var q={bangan:0,rasalu:0,himayat:0,kesar:0};
+  document.querySelectorAll('#adjust-rows input[type=number]').forEach(function(inp){
+    q[inp.dataset.k]=Math.max(0, parseInt(inp.value||'0',10)||0);
+  });
+  return q;
+}
+async function submitAdjust(){
+  var orderId=_adjOrderId; if(!orderId) return;
+  var q=_adjCollect();
+  var notify=document.getElementById('adjust-notify').checked?'1':'0';
+  if(!confirm('Save these changes to order #'+orderId+'?')) return;
+  closeAdjustModal();
+  toast('Updating order…');
+  var r=await api('adjustOrder', {orderId:orderId, bangan:q.bangan, rasalu:q.rasalu, himayat:q.himayat, kesar:q.kesar, notify:notify});
+  if(r.status==='ok'){ toast('✓ '+r.message); refreshAll(); }
+  else { toast('❌ '+(r.message||'Update failed'), true); }
+}
+async function cancelEntireFromAdjust(){
+  var orderId=_adjOrderId; if(!orderId) return;
+  var notify=document.getElementById('adjust-notify').checked?'1':'0';
+  if(!confirm('Cancel the ENTIRE order #'+orderId+'? This releases all of its boxes.')) return;
+  closeAdjustModal();
+  toast('Cancelling…');
+  var r=await api('adjustOrder', {orderId:orderId, bangan:0, rasalu:0, himayat:0, kesar:0, notify:notify});
+  if(r.status==='ok'){ toast('✓ '+r.message); refreshAll(); }
+  else { toast('❌ '+(r.message||'Cancel failed'), true); }
+}
+
 function renderReports(){
   var sel = document.getElementById('report-loc-filter');
   var orders = (cachedData.orders || []).slice();
@@ -1340,6 +1439,100 @@ function renderReports(){
       '</div>';
     }).join('')+'</div>';
   }
+
+  renderReportChart_(agg, VARS);
+  renderReportCustomers_(data, VARS);
+}
+
+// Real chart (Chart.js): stacked paid/unpaid bar for all varieties,
+// or a paid-vs-unpaid doughnut when a single variety is selected.
+function renderReportChart_(agg, VARS){
+  var cv = document.getElementById('reports-chart');
+  if(!cv || !window.Chart) return;
+  var vf = (document.getElementById('report-var-filter')||{}).value || 'all';
+  if(window._repChart){ try{ window._repChart.destroy(); }catch(e){} }
+  var cfg;
+  if(vf==='all'){
+    cfg = {
+      type:'bar',
+      data:{ labels:VARS.map(function(v){return v.name;}),
+        datasets:[
+          {label:'Paid',   data:VARS.map(function(v){return agg[v.key].paid;}),   backgroundColor:'#2D6B4D'},
+          {label:'Unpaid', data:VARS.map(function(v){return agg[v.key].unpaid;}), backgroundColor:'#C8973A'}
+        ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}},
+        plugins:{legend:{position:'top'}}}
+    };
+  } else {
+    var v=(VARS.filter(function(x){return x.key===vf;})[0]||{});
+    cfg = {
+      type:'doughnut',
+      data:{ labels:['Paid','Unpaid'],
+        datasets:[{ data:[agg[vf].paid, agg[vf].unpaid], backgroundColor:['#2D6B4D','#C8973A'] }]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top'}, title:{display:true, text:(v.name||'')+' — paid vs unpaid boxes'}}}
+    };
+  }
+  window._repChart = new Chart(cv.getContext('2d'), cfg);
+}
+
+// Detailed customer list, filtered by location (already applied to `data`),
+// variety, and paid/unpaid status. Unpaid rows get a Cancel button.
+function renderReportCustomers_(data, VARS){
+  var host=document.getElementById('reports-customers');
+  if(!host) return;
+  var vf=(document.getElementById('report-var-filter')||{}).value || 'all';
+  var sf=(document.getElementById('report-status-filter')||{}).value || 'all';
+  function isCancelled(o){ return ['cancelled','canceled','expired'].indexOf(String(o.paymentStatus||'').toLowerCase())>=0; }
+
+  var rows=data.filter(function(o){
+    if(vf!=='all' && !(Number(o[vf])>0)) return false;
+    var paid=!!o.paymentReceived;
+    if(sf==='paid'   && !paid) return false;
+    if(sf==='unpaid' && (paid || isCancelled(o))) return false;
+    return true;
+  });
+  rows.sort(function(a,b){
+    var ap=a.paymentReceived?1:0, bp=b.paymentReceived?1:0;
+    if(ap!==bp) return ap-bp;
+    var al=String(a.pickupLocation||''), bl=String(b.pickupLocation||'');
+    if(al!==bl) return al.localeCompare(bl);
+    return String(a.customerName||'').localeCompare(String(b.customerName||''));
+  });
+  function vbreak(o){ var p=[]; if(o.bangan)p.push('B×'+o.bangan); if(o.rasalu)p.push('R×'+o.rasalu); if(o.himayat)p.push('H×'+o.himayat); if(o.kesar)p.push('K×'+o.kesar); return p.join(' · '); }
+
+  if(rows.length===0){ host.innerHTML='<div class="empty">No matching orders for these filters.</div>'; return; }
+
+  var varCol=(vf==='all')?'Boxes':((VARS.filter(function(x){return x.key===vf;})[0]||{}).name+' boxes');
+  var head='<tr><th>Order</th><th>Customer</th><th>Location</th><th>'+varCol+'</th><th>Total</th><th>Status</th><th>Action</th></tr>';
+  var body=rows.map(function(o){
+    var cancelled=isCancelled(o), paid=!!o.paymentReceived;
+    var statusHtml = cancelled ? '<span style="color:#a61e1e;font-weight:700">Cancelled</span>'
+      : paid ? '<span style="color:#2D6B4D;font-weight:700">Paid</span>'
+      : '<span style="color:#C8973A;font-weight:700">Unpaid</span>';
+    var boxesCell = (vf==='all') ? (o.totalBoxes+' <span style="color:#999;font-size:11px">('+vbreak(o)+')</span>') : (Number(o[vf])||0);
+    var action;
+    if(cancelled){ action='—'; }
+    else {
+      action = '<button onclick="openAdjustModal(\''+o.orderId+'\')" style="background:#1F4A2C;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;margin-right:4px">✏️ Items</button>';
+      if(!paid) action += '<button onclick="cancelOrderFromGui(\''+o.orderId+'\', this)" style="background:#c0392b;color:#fff;border:none;padding:6px 10px;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px">✕ Cancel</button>';
+    }
+    return '<tr>'+
+      '<td><strong>#'+o.orderId+'</strong></td>'+
+      '<td>'+escapeHtml(o.customerName||'')+'<br><span style="color:#888;font-size:11px">'+escapeHtml(o.phone||'')+(o.email?' · '+escapeHtml(o.email):'')+'</span></td>'+
+      '<td>📍 '+escapeHtml(o.pickupLocation||'')+'</td>'+
+      '<td class="num">'+boxesCell+'</td>'+
+      '<td>$'+formatNum(o.totalAmount||0)+'</td>'+
+      '<td>'+statusHtml+'</td>'+
+      '<td>'+action+'</td>'+
+    '</tr>';
+  }).join('');
+  var unpaidCount=rows.filter(function(o){return !o.paymentReceived && !isCancelled(o);}).length;
+  host.innerHTML =
+    '<div style="font-size:13px;color:#666;margin-bottom:10px">Showing <strong>'+rows.length+'</strong> order(s)'+
+      (unpaidCount?' · <span style="color:#C8973A;font-weight:700">'+unpaidCount+' unpaid</span>':'')+'</div>'+
+    '<div style="overflow-x:auto"><table class="data-table">'+head+body+'</table></div>';
 }
 </script>
 
