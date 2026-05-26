@@ -437,6 +437,20 @@
   </div>
 </div>
 
+<!-- Custom order total (price override) modal -->
+<div class="modal-overlay" id="price-modal">
+  <div class="modal-card" style="max-width:420px;text-align:left">
+    <h3 style="text-align:center">💲 Edit Order Total <span id="price-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 10px">Set a custom total for this order (bulk/wholesale or special pricing). Current total: <strong id="price-current"></strong>. This changes only the dollar amount — box counts stay the same.</p>
+    <label style="font-size:13px;color:#555;display:block;margin-bottom:6px">New total ($)</label>
+    <input id="price-input" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid #e6dfd0;border-radius:8px;font-size:16px;box-sizing:border-box">
+    <div class="modal-pay-btns" style="margin-top:16px">
+      <button onclick="submitPrice()">💾 Save total</button>
+    </div>
+    <button class="modal-cancel" onclick="closePriceModal()">Cancel</button>
+  </div>
+</div>
+
 <!-- Edit / partial-cancel items modal -->
 <div class="modal-overlay" id="adjust-modal">
   <div class="modal-card" style="max-width:480px;text-align:left">
@@ -945,7 +959,7 @@ function custCell(r) {
       ${r.email ? `<span title="Email">✉️ ${escapeHtml(r.email)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}
-    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button>`;
+    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
 }
 
 function escapeHtml(s) {
@@ -1290,6 +1304,29 @@ function findOrderById(orderId){
   const all = [...(cachedData.orders||[]), ...(cachedData.pending||[]), ...(cachedData.paid||[])];
   return all.find(o => String(o.orderId) === String(orderId)) || null;
 }
+let _priceOrderId = null;
+function openPriceModal(orderId){
+  if (userRole !== 'admin') { toast('Admin only — price changes require the admin login.', true); return; }
+  _priceOrderId = orderId;
+  const o = findOrderById(orderId);
+  document.getElementById('price-modal-order').textContent = '#' + orderId;
+  document.getElementById('price-current').textContent = o ? ('$' + (o.totalAmount || 0)) : '—';
+  document.getElementById('price-input').value = o ? (o.totalAmount || 0) : '';
+  document.getElementById('price-modal').style.display = 'flex';
+}
+function closePriceModal(){ document.getElementById('price-modal').style.display = 'none'; _priceOrderId = null; }
+async function submitPrice(){
+  const orderId = _priceOrderId; if (!orderId) return;
+  const amt = Number(document.getElementById('price-input').value);
+  if (isNaN(amt) || amt < 0) { toast('Enter a valid dollar amount.', true); return; }
+  if (!confirm('Set order #' + orderId + ' total to $' + amt + '?')) return;
+  closePriceModal();
+  toast('Updating total…');
+  const r = await api('setOrderTotal', {orderId, amount: amt});
+  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  else { toast('❌ ' + (r.message || 'Could not update total'), true); }
+}
+
 function openNoteModal(orderId){
   _noteOrderId = orderId;
   const o = findOrderById(orderId);
