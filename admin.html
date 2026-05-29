@@ -1146,11 +1146,16 @@ function renderOrders() {
   const oRev=filtered.reduce((s,o)=>s+(o.totalAmount||0),0);
   const oUnpaid=filtered.filter(o=>!o.paymentReceived && !['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase()));
   const oUnpaidAmt=oUnpaid.reduce((s,o)=>s+(o.totalAmount||0),0);
-  const ordBar = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">`+
+  // Remember which unpaid orders are currently shown, so the bulk button can cancel exactly these.
+  window._bulkCancelIds = oUnpaid.map(o=>o.orderId);
+  const bulkBtn = oUnpaid.length ?
+    `<button id="bulk-cancel-btn" onclick="bulkCancelUnpaidShown()" style="background:#A61E1E;color:#fff;border:none;padding:7px 13px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✕ Cancel ${oUnpaid.length} unpaid shown</button>` : '';
+  const ordBar = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center">`+
     `<span style="background:#1F4A2C;color:#fff;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${filtered.length}</strong> orders</span>`+
     `<span style="background:#FBF6ED;border:1px solid #e6dfd0;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${oBoxes}</strong> boxes</span>`+
     `<span style="background:#FBF6ED;border:1px solid #e6dfd0;padding:7px 13px;border-radius:8px;font-size:13px"><strong>$${formatNum(oRev)}</strong> total</span>`+
     `<span style="background:#FFF4D6;border:1px solid #C8973A;color:#8a5a00;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${oUnpaid.length}</strong> unpaid · $${formatNum(oUnpaidAmt)} outstanding</span>`+
+    bulkBtn+
     `</div>`;
   el.innerHTML = ordBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
@@ -1394,7 +1399,6 @@ async function submitPrice(){
   });
   tot=Math.round(tot*100)/100;
   if (isNaN(tot) || tot < 0) { toast('Enter valid prices.', true); return; }
-  if (!confirm('Set order #' + orderId + ' total to $' + tot + '?')) return;
   closePriceModal();
   toast('Updating total…');
   const r = await api('setOrderTotal', {orderId, amount: tot, detail: parts.join(', ')});
@@ -1444,11 +1448,47 @@ async function undoAction(orderId, type, btn) {
 }
 
 async function cancelOrderFromGui(orderId, btn) {
-  if (!confirm(`Cancel Order #${orderId}?\n\nThis releases its boxes back to inventory and cannot be undone from here.`)) return;
-  btn.disabled = true; btn.textContent = '…';
-  const r = await api('cancelOrder', {orderId});
-  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
-  else { toast('❌ ' + (r.message || 'Cancel failed'), true); btn.disabled = false; btn.textContent = '✕ Cancel'; }
+  // No popup — cancel and update the row in place.
+  localUpdateOrder(orderId, {paymentStatus:'Cancelled', paymentReceived:false});
+  toast('✓ Cancelled #' + orderId);
+  api('cancelOrder', {orderId}).then(function(r){
+    if (!r || r.status !== 'ok') { toast('❌ ' + ((r && r.message) || 'Cancel failed — refreshing'), true); refreshAll(); }
+  }).catch(function(e){ toast('❌ Cancel failed: ' + e, true); refreshAll(); });
+}
+
+// ---- Bulk cancel all unpaid orders currently shown (filtered) ----
+// No browser popup. First tap "arms" the button (turns into a 4-second
+// "tap again" warning) so one accidental click can't wipe dozens of orders.
+let _bulkArmed = false, _bulkTimer = null;
+function bulkCancelUnpaidShown() {
+  var ids = (window._bulkCancelIds || []).slice();
+  var btn = document.getElementById('bulk-cancel-btn');
+  if (!ids.length) { toast('Nothing unpaid in the current view.'); return; }
+  if (!_bulkArmed) {
+    _bulkArmed = true;
+    if (btn) btn.textContent = '⚠ Tap again to cancel ' + ids.length + ' orders';
+    _bulkTimer = setTimeout(function(){
+      _bulkArmed = false;
+      if (btn) btn.textContent = '✕ Cancel ' + ids.length + ' unpaid shown';
+    }, 4000);
+    return;
+  }
+  clearTimeout(_bulkTimer); _bulkArmed = false;
+  doBulkCancel(ids);
+}
+async function doBulkCancel(ids) {
+  toast('Cancelling ' + ids.length + ' unpaid orders…');
+  // Optimistic: flip them all locally, render once.
+  ids.forEach(function(id){
+    var o = (cachedData.orders || []).find(function(x){ return String(x.orderId) === String(id); });
+    if (o) { o.paymentStatus = 'Cancelled'; o.paymentReceived = false; }
+  });
+  rerenderFromCache();
+  try {
+    var r = await api('bulkCancel', {orderIds: ids.join(',')});
+    if (r && r.status === 'ok') toast('✓ ' + (r.message || ('Cancelled ' + ids.length + ' orders')));
+    else { toast('❌ ' + ((r && r.message) || 'Bulk cancel failed — refreshing'), true); refreshAll(); }
+  } catch (e) { toast('❌ Bulk cancel failed: ' + e, true); refreshAll(); }
 }
 
 // ============ TOAST ============
@@ -1500,7 +1540,6 @@ async function submitAdjust(){
   var orderId=_adjOrderId; if(!orderId) return;
   var q=_adjCollect();
   var notify=document.getElementById('adjust-notify').checked?'1':'0';
-  if(!confirm('Save these changes to order #'+orderId+'?')) return;
   closeAdjustModal();
   toast('Updating order…');
   var r=await api('adjustOrder', {orderId:orderId, bangan:q.bangan, rasalu:q.rasalu, himayat:q.himayat, kesar:q.kesar, notify:notify});
@@ -1510,7 +1549,6 @@ async function submitAdjust(){
 async function cancelEntireFromAdjust(){
   var orderId=_adjOrderId; if(!orderId) return;
   var notify=document.getElementById('adjust-notify').checked?'1':'0';
-  if(!confirm('Cancel the ENTIRE order #'+orderId+'? This releases all of its boxes.')) return;
   closeAdjustModal();
   toast('Cancelling…');
   var r=await api('adjustOrder', {orderId:orderId, bangan:0, rasalu:0, himayat:0, kesar:0, notify:notify});
