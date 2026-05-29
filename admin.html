@@ -1277,7 +1277,7 @@ async function markAction(orderId, type, btn) {
     openPayModal(orderId);
     return;
   }
-  if (!confirm(`Confirm: mark Order #${orderId} as PICKED UP?\n\nMake sure the customer has their boxes.`)) return;
+  // Mark Picked Up immediately — no confirm popup, no email (fast save).
   btn.disabled = true; btn.textContent = 'Saving…';
   const r = await api('markPickedUp', {orderId});
   if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
