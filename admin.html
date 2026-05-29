@@ -359,6 +359,7 @@
         <div class="filter-bar">
           <span class="filter-label">🏷️ Status:</span>
           <div id="chips-orders-status" class="chip-row"></div>
+          <button type="button" class="print-btn" onclick="printOrders()" style="margin-left:auto">🖨️ Print list</button>
         </div>
         <div class="filter-hint">Tap any number of locations and statuses — none selected shows all.</div>
         <input type="text" class="search-box" id="search-orders" placeholder="Search by name, order #, phone, email, city…" oninput="renderOrders()">
@@ -1239,6 +1240,120 @@ function printPaid() {
   w.document.write(doc);
   w.document.close();
   // Give the new window a moment to lay out before invoking print.
+  w.onload = () => { try { w.focus(); w.print(); } catch(e){} };
+}
+
+// Print the All Orders list, honoring its Location + Status + search filters.
+// Includes a Payment column so you can see who paid (and how) at a glance.
+function printOrders() {
+  const locs = selectedChips('chips-orders-loc');
+  const search = document.getElementById('search-orders')?.value || '';
+  const statuses = selectedChips('chips-orders-status');
+  const filtered = applyFilters(cachedData.orders, locs, search, statuses);
+  if (!filtered.length) {
+    alert('No orders match the current filters — nothing to print.');
+    return;
+  }
+  const statusLabels = { unpaid:'Unpaid', paid:'Paid', awaiting:'Awaiting pickup', pickedup:'Picked up', cancelled:'Cancelled/Expired' };
+  const statusLabel = statuses.length ? statuses.map(s => statusLabels[s] || s).join(' + ') : 'All statuses';
+  printOrderList_(filtered, { locs, statusLabel, title: 'TRU Mangoes — Order List', showPayment: true });
+}
+
+// Shared print builder used by printPaid() and printOrders().
+function printOrderList_(orders, opts) {
+  opts = opts || {};
+  const groups = groupByLocation(orders);
+  const printedOn = new Date().toLocaleString('en-US',
+    { weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  const locLabel = (opts.locs && opts.locs.length) ? opts.locs.join(' + ') : 'All locations';
+  const showPayment = !!opts.showPayment;
+  let gOrders = 0, gBoxes = 0, gMoney = 0, gPaid = 0;
+  const payCell = (o) => {
+    if (o.paymentReceived) {
+      const m = o.paymentMethod ? ' (' + escapeHtml(o.paymentMethod) + ')' : '';
+      return '<span class="paid">Paid' + m + '</span>';
+    }
+    const st = String(o.paymentStatus || '').toLowerCase();
+    if (['cancelled','canceled','expired'].includes(st)) return '<span class="canc">' + escapeHtml(o.paymentStatus) + '</span>';
+    return '<span class="unpaid">Unpaid</span>';
+  };
+  const sections = Object.entries(groups).map(([loc, rows]) => {
+    const boxes = rows.reduce((s,o)=>s+(o.totalBoxes||0),0);
+    const money = rows.reduce((s,o)=>s+(o.totalAmount||0),0);
+    const paidMoney = rows.filter(o=>o.paymentReceived).reduce((s,o)=>s+(o.totalAmount||0),0);
+    gOrders += rows.length; gBoxes += boxes; gMoney += money; gPaid += paidMoney;
+    const body = rows.map(o => `
+      <tr>
+        <td class="chk">&#9744;</td>
+        <td class="oid">#${escapeHtml(String(o.orderId))}</td>
+        <td>${escapeHtml(o.customerName || '')}</td>
+        <td class="nowrap">${escapeHtml(String(o.phone == null ? '' : o.phone))}</td>
+        <td>${escapeHtml(varietyCell(o) || '')}</td>
+        <td class="ctr"><strong>${o.totalBoxes || 0}</strong></td>
+        <td class="ctr">$${formatNum(o.totalAmount)}</td>
+        ${showPayment ? `<td class="pay">${payCell(o)}</td>` : ''}
+        <td class="status">${o.pickedUp ? 'Picked up' : (o.paymentReceived ? 'Awaiting' : '')}</td>
+        <td class="notes">${escapeHtml(o.notes || '')}</td>
+      </tr>`).join('');
+    return `
+      <section class="loc">
+        <h2>📍 ${escapeHtml(loc)}
+          <span class="loc-sum">${rows.length} order${rows.length!==1?'s':''} · ${boxes} box${boxes!==1?'es':''} · $${formatNum(money)}${showPayment ? ' · $'+formatNum(paidMoney)+' paid' : ' collected'}</span>
+        </h2>
+        <table>
+          <thead><tr>
+            <th class="chk">✓</th><th>Order</th><th>Customer</th><th>Phone</th>
+            <th>Varieties</th><th class="ctr">Boxes</th><th class="ctr">Total</th>
+            ${showPayment ? '<th>Payment</th>' : ''}<th>Pickup</th><th>Notes</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </section>`;
+  }).join('');
+  const grand = `Totals printed: <strong>${gOrders}</strong> orders · <strong>${gBoxes}</strong> boxes · <strong>$${formatNum(gMoney)}</strong> total`
+    + (showPayment ? ` · <strong>$${formatNum(gPaid)}</strong> collected` : '');
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>${escapeHtml(opts.title || 'TRU Mangoes — List')}</title>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;margin:24px;font-size:12px}
+      header{border-bottom:3px solid #1F4A2C;padding-bottom:10px;margin-bottom:18px}
+      header h1{margin:0;color:#1F4A2C;font-size:20px}
+      header .meta{color:#555;font-size:12px;margin-top:4px}
+      header .meta strong{color:#1a1a1a}
+      section.loc{margin-bottom:26px}
+      section.loc h2{font-size:15px;color:#1F4A2C;margin:0 0 6px;border-bottom:1.5px solid #C8973A;padding-bottom:4px}
+      .loc-sum{font-weight:400;font-size:12px;color:#666;margin-left:8px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#f1ede2;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:6px 7px;border:1px solid #d8cfb8}
+      td{padding:7px;border:1px solid #e2dcc9;vertical-align:top}
+      td.chk,th.chk{width:26px;text-align:center;font-size:16px;line-height:1}
+      td.oid{font-family:monospace;white-space:nowrap}
+      td.ctr,th.ctr{text-align:center;white-space:nowrap}
+      td.nowrap{white-space:nowrap}
+      td.notes{color:#555;font-size:11px}
+      td.status{font-size:11px;color:#555;white-space:nowrap}
+      td.pay .paid{color:#1B5E20;font-weight:700}
+      td.pay .unpaid{color:#8a5a00;font-weight:700}
+      td.pay .canc{color:#999;text-decoration:line-through}
+      tbody tr:nth-child(even){background:#fbf9f2}
+      .grand{margin-top:18px;padding-top:10px;border-top:2px solid #1F4A2C;font-size:13px}
+      .grand strong{color:#1F4A2C}
+      @media print{ body{margin:12mm} section.loc{page-break-inside:avoid} .noprint{display:none} }
+      .noprint{margin-bottom:16px}
+      .noprint button{padding:9px 18px;border:none;border-radius:6px;background:#1F4A2C;color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+    </style></head><body>
+    <div class="noprint"><button onclick="window.print()">🖨️ Print this page</button></div>
+    <header>
+      <h1>${escapeHtml(opts.title || 'TRU Mangoes — List')}</h1>
+      <div class="meta">Location: <strong>${escapeHtml(locLabel)}</strong>${opts.statusLabel ? ' &nbsp;·&nbsp; Status: <strong>'+escapeHtml(opts.statusLabel)+'</strong>' : ''} &nbsp;·&nbsp; Printed ${escapeHtml(printedOn)}</div>
+    </header>
+    ${sections}
+    <div class="grand">${grand}</div>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.open(); w.document.write(doc); w.document.close();
   w.onload = () => { try { w.focus(); w.print(); } catch(e){} };
 }
 
