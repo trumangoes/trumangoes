@@ -1304,11 +1304,18 @@ async function markAction(orderId, type, btn) {
     openPayModal(orderId);
     return;
   }
-  // Mark Picked Up immediately — no confirm popup, no email (fast save).
-  btn.disabled = true; btn.textContent = 'Saving…';
-  const r = await api('markPickedUp', {orderId});
-  if (r.status === 'ok') { toast('✓ ' + r.message); localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'}); }
-  else { toast('❌ ' + r.message, true); btn.disabled = false; }
+  // Mark Picked Up: flip the row instantly, save in the background, no email.
+  localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+  toast('✓ Picked up #' + orderId);
+  api('markPickedUp', {orderId}).then(function(r){
+    if (!r || r.status !== 'ok') {
+      localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'}); // revert on failure
+      toast('❌ ' + ((r && r.message) || 'Save failed — try again'), true);
+    }
+  }).catch(function(e){
+    localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
+    toast('❌ Save failed: ' + e, true);
+  });
 }
 
 // Payment-method modal: Zelle or Cash
@@ -1326,10 +1333,18 @@ async function confirmPayment(method) {
   const orderId = _payOrderId;
   closePayModal();
   if (!orderId) return;
-  toast('Saving payment…');
-  const r = await api('markPaymentReceived', {orderId, method});
-  if (r.status === 'ok') { toast('✓ ' + r.message); localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid', paymentMethod:method}); }
-  else { toast('❌ ' + r.message, true); }
+  // Flip the row instantly, save in the background, no email.
+  localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid', paymentMethod:method});
+  toast('✓ Paid #' + orderId + ' (' + method + ')');
+  api('markPaymentReceived', {orderId, method}).then(function(r){
+    if (!r || r.status !== 'ok') {
+      localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending', paymentMethod:''}); // revert
+      toast('❌ ' + ((r && r.message) || 'Save failed — try again'), true);
+    }
+  }).catch(function(e){
+    localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending', paymentMethod:''});
+    toast('❌ Save failed: ' + e, true);
+  });
 }
 
 // ---- Order note modal ----
@@ -1410,15 +1425,22 @@ async function saveNote(){
 }
 
 async function undoAction(orderId, type, btn) {
-  // No confirm popup — undo immediately and update the row in place (fast).
-  btn.disabled = true; btn.textContent = '…';
+  // Flip the row back instantly, save in the background. No popup.
   const action = (type === 'payment') ? 'unmarkPaymentReceived' : 'unmarkPickedUp';
-  const r = await api(action, {orderId});
-  if (r.status === 'ok') {
-    toast('✓ ' + r.message);
-    if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending'});
-    else localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
-  } else { toast('❌ ' + r.message, true); btn.disabled = false; }
+  if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending'});
+  else localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
+  toast('✓ Undid ' + type + ' for #' + orderId);
+  api(action, {orderId}).then(function(r){
+    if (!r || r.status !== 'ok') {
+      if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid'}); // revert
+      else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+      toast('❌ ' + ((r && r.message) || 'Undo failed — try again'), true);
+    }
+  }).catch(function(e){
+    if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid'});
+    else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+    toast('❌ Undo failed: ' + e, true);
+  });
 }
 
 async function cancelOrderFromGui(orderId, btn) {
