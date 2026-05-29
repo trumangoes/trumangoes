@@ -1205,24 +1205,36 @@ function updateSelCount() {
   if (!btn) return;
   var n = selectedToCancel.size;
   if (n > 0) { btn.style.display = ''; btn.textContent = '✕ Cancel ' + n + ' selected'; }
-  else { btn.style.display = 'none'; _selArmed = false; }
+  else { btn.style.display = 'none'; }
 }
 
-// Cancel the orders the user ticked. Two-tap arm (no popup).
-var _selArmed = false, _selTimer = null;
+// Inline confirm (NOT a browser popup): hides the button and shows
+// "Cancel N? [✓ Yes] [Keep]" right next to it. No timing/double-tap.
+function armConfirm(btnId, label, onYes) {
+  var btn = document.getElementById(btnId);
+  if (!btn || document.getElementById(btnId + '-confirm')) return;
+  btn.style.display = 'none';
+  var wrap = document.createElement('span');
+  wrap.id = btnId + '-confirm';
+  wrap.style.cssText = 'display:inline-flex;gap:6px;align-items:center';
+  wrap.innerHTML =
+    '<span style="font-size:13px;color:#A61E1E;font-weight:700">Cancel ' + label + '?</span>' +
+    '<button id="' + btnId + '-yes" style="background:#A61E1E;color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✓ Yes, cancel</button>' +
+    '<button id="' + btnId + '-keep" style="background:#eee;border:none;padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer">Keep</button>';
+  btn.parentNode.insertBefore(wrap, btn.nextSibling);
+  document.getElementById(btnId + '-yes').onclick = function () { wrap.remove(); btn.style.display = ''; onYes(); };
+  document.getElementById(btnId + '-keep').onclick = function () { wrap.remove(); btn.style.display = ''; };
+}
+
+// Cancel the orders the user ticked.
 function cancelSelected() {
   var ids = Array.from(selectedToCancel);
-  var btn = document.getElementById('sel-cancel-btn');
   if (!ids.length) return;
-  if (!_selArmed) {
-    _selArmed = true;
-    if (btn) btn.textContent = '⚠ Tap again to cancel ' + ids.length + ' selected';
-    _selTimer = setTimeout(function(){ _selArmed = false; updateSelCount(); }, 4000);
-    return;
-  }
-  clearTimeout(_selTimer); _selArmed = false;
-  runCancel(ids);
-  selectedToCancel.clear();
+  armConfirm('sel-cancel-btn', ids.length + ' selected', function () {
+    var go = ids.slice();
+    selectedToCancel.clear();
+    runCancel(go);
+  });
 }
 
 // ============ LOCATION BREAKDOWN (Dashboard) ============
@@ -1503,30 +1515,16 @@ async function cancelOrderFromGui(orderId, btn) {
 }
 
 // ---- Bulk cancel all unpaid orders currently shown (filtered) ----
-// No browser popup. First tap "arms" the button (turns into a 4-second
-// "tap again" warning) so one accidental click can't wipe dozens of orders.
-let _bulkArmed = false, _bulkTimer = null;
 function bulkCancelUnpaidShown() {
   var ids = (window._bulkCancelIds || []).slice();
-  var btn = document.getElementById('bulk-cancel-btn');
   if (!ids.length) { toast('Nothing unpaid in the current view.'); return; }
-  if (!_bulkArmed) {
-    _bulkArmed = true;
-    if (btn) btn.textContent = '⚠ Tap again to cancel ' + ids.length + ' orders';
-    _bulkTimer = setTimeout(function(){
-      _bulkArmed = false;
-      if (btn) btn.textContent = '✕ Cancel ' + ids.length + ' unpaid shown';
-    }, 4000);
-    return;
-  }
-  clearTimeout(_bulkTimer); _bulkArmed = false;
-  runCancel(ids);
+  armConfirm('bulk-cancel-btn', ids.length + ' unpaid', function () { runCancel(ids); });
 }
 
-// Shared cancel routine for both "cancel selected" and "cancel all unpaid shown".
-// Uses the EXISTING per-order cancelOrder endpoint (already live in your deployed
-// script) so it works even if the newer bulkCancel endpoint isn't published yet.
-// Optimistic: rows vanish immediately; the cancels run in the background.
+// Shared cancel routine. Optimistic: rows vanish immediately, then the server
+// catches up. Tries the fast one-shot bulkCancel endpoint first; if that isn't
+// published yet, falls back to cancelling one order at a time (sequential, so
+// it can't overload the script). Surfaces the real error if anything fails.
 async function runCancel(ids) {
   ids = ids.map(String);
   toast('Cancelling ' + ids.length + ' order(s)…');
@@ -1536,19 +1534,23 @@ async function runCancel(ids) {
     if (o) { o.paymentStatus = 'Cancelled'; o.paymentReceived = false; }
   });
   rerenderFromCache();
-  // 2) Fire the server cancels in the background, a few at a time.
-  var ok = 0, fail = 0, idx = 0, BATCH = 5;
-  async function worker() {
-    while (idx < ids.length) {
-      var id = ids[idx++];
-      try { var r = await api('cancelOrder', {orderId: id}); if (r && r.status === 'ok') ok++; else fail++; }
-      catch (e) { fail++; }
-    }
+
+  // 2a) Try the fast single-call endpoint (works if Code.gs was republished).
+  try {
+    var rb = await api('bulkCancel', {orderIds: ids.join(',')});
+    if (rb && rb.status === 'ok') { toast('✓ ' + (rb.message || ('Cancelled ' + ids.length + ' order(s).'))); return; }
+  } catch (e) { /* fall through to per-order */ }
+
+  // 2b) Fallback: cancel one at a time using the existing cancelOrder endpoint.
+  var ok = 0, fail = 0, firstErr = '';
+  for (var i = 0; i < ids.length; i++) {
+    try {
+      var r = await api('cancelOrder', {orderId: ids[i]});
+      if (r && r.status === 'ok') ok++;
+      else { fail++; if (!firstErr) firstErr = (r && r.message) || 'unknown error'; }
+    } catch (e) { fail++; if (!firstErr) firstErr = String(e); }
   }
-  var workers = [];
-  for (var w = 0; w < BATCH; w++) workers.push(worker());
-  await Promise.all(workers);
-  if (fail) { toast('✓ Cancelled ' + ok + ', ' + fail + ' failed — refreshing', true); refreshAll(); }
+  if (fail) { toast('Cancelled ' + ok + ', ' + fail + ' failed: ' + firstErr + ' — refreshing', true); refreshAll(); }
   else toast('✓ Cancelled ' + ok + ' order(s). No emails sent.');
 }
 
