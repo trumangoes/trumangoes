@@ -637,6 +637,33 @@ async function refreshAll() {
   }
 }
 
+// Re-derive the lists from the orders already in memory and re-render —
+// WITHOUT re-downloading everything from the server. Used after a single
+// mark action so the UI updates instantly instead of waiting on a full reload.
+function rerenderFromCache() {
+  var isReleased = function(o){ return ['cancelled','canceled','expired'].includes(String(o.paymentStatus || '').toLowerCase()); };
+  cachedData.pending = (cachedData.orders || []).filter(o => !o.paymentReceived && !isReleased(o));
+  cachedData.paid    = (cachedData.orders || []).filter(o => o.paymentReceived);
+  try { renderStatusChips(); } catch(e){}
+  try { renderPending(); } catch(e){}
+  try { renderPaid(); } catch(e){}
+  try { renderOrders(); } catch(e){}
+  try { renderLocationBreakdown(); } catch(e){}
+  try { renderReports(); } catch(e){}
+  try { renderDashboardLocChart_(); } catch(e){}
+  updateCount('pending', cachedData.pending.length);
+  updateCount('paid',    cachedData.paid.length);
+  updateCount('orders',  cachedData.orders.length);
+  try { renderDashboardFromOrders(cachedData.orders); } catch(e){}
+}
+
+// Apply field changes to one order in memory, then re-render instantly.
+function localUpdateOrder(orderId, changes) {
+  var o = (cachedData.orders || []).find(x => String(x.orderId) === String(orderId));
+  if (o) { for (var k in changes) o[k] = changes[k]; }
+  rerenderFromCache();
+}
+
 // ============ DASHBOARD ============
 // Computes all dashboard stats from the single orders dataset (client-side),
 // so the dashboard always matches the list tabs exactly.
@@ -1280,7 +1307,7 @@ async function markAction(orderId, type, btn) {
   // Mark Picked Up immediately — no confirm popup, no email (fast save).
   btn.disabled = true; btn.textContent = 'Saving…';
   const r = await api('markPickedUp', {orderId});
-  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  if (r.status === 'ok') { toast('✓ ' + r.message); localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'}); }
   else { toast('❌ ' + r.message, true); btn.disabled = false; }
 }
 
@@ -1301,7 +1328,7 @@ async function confirmPayment(method) {
   if (!orderId) return;
   toast('Saving payment…');
   const r = await api('markPaymentReceived', {orderId, method});
-  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
+  if (r.status === 'ok') { toast('✓ ' + r.message); localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid', paymentMethod:method}); }
   else { toast('❌ ' + r.message, true); }
 }
 
@@ -1383,12 +1410,15 @@ async function saveNote(){
 }
 
 async function undoAction(orderId, type, btn) {
-  if (!confirm(`ADMIN OVERRIDE: Unmark ${type} for Order #${orderId}? This will allow it to be re-marked.`)) return;
+  // No confirm popup — undo immediately and update the row in place (fast).
   btn.disabled = true; btn.textContent = '…';
   const action = (type === 'payment') ? 'unmarkPaymentReceived' : 'unmarkPickedUp';
   const r = await api(action, {orderId});
-  if (r.status === 'ok') { toast('✓ ' + r.message); refreshAll(); }
-  else { toast('❌ ' + r.message, true); btn.disabled = false; }
+  if (r.status === 'ok') {
+    toast('✓ ' + r.message);
+    if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending'});
+    else localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
+  } else { toast('❌ ' + r.message, true); btn.disabled = false; }
 }
 
 async function cancelOrderFromGui(orderId, btn) {
