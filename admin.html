@@ -191,6 +191,8 @@
   .filter-bar select{padding:9px 12px;border:1.5px solid #e6dfd0;border-radius:6px;background:#FBF6ED;font-size:14px;font-family:inherit;cursor:pointer;color:#2a1500}
   .filter-bar select:focus{outline:none;border-color:#1F4A2C}
   .filter-bar .filter-label{font-size:13px;color:#888;font-weight:600}
+  .print-btn{padding:9px 16px;border:none;border-radius:6px;background:#1F4A2C;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+  .print-btn:hover{background:#2D6B4D}
 
   /* ENHANCED CUSTOMER CELLS */
   .cust-name{font-weight:700;color:#2a1500;font-size:14px}
@@ -338,6 +340,7 @@
             <option value="awaiting">Awaiting pickup</option>
             <option value="pickedup">Already picked up</option>
           </select>
+          <button type="button" class="print-btn" onclick="printPaid()" style="margin-left:auto">🖨️ Print list</button>
         </div>
         <div class="filter-hint">Tap locations to filter — none selected shows all.</div>
         <input type="text" class="search-box" id="search-paid" placeholder="Search by name, order #, phone, email…" oninput="renderPaid()">
@@ -1129,6 +1132,114 @@ function renderPaid() {
         </table>
       </div>
     </div>`).join('');
+}
+
+// ============ PRINT — paid pickup checklist ============
+// Builds a clean, paper-friendly checklist of PAID orders, honoring the
+// current Location chips / pickup / search filters on the Paid tab.
+// One section per location, with a tick column to check people off at pickup.
+function printPaid() {
+  const locs = selectedChips('chips-paid-loc');
+  const search = document.getElementById('search-paid')?.value || '';
+  const pickupFilter = document.getElementById('filter-paid-pickup')?.value || '';
+  let base = cachedData.paid;
+  if (pickupFilter === 'awaiting') base = base.filter(o => !o.pickedUp);
+  if (pickupFilter === 'pickedup') base = base.filter(o => o.pickedUp);
+  const filtered = applyFilters(base, locs, search);
+
+  if (!filtered.length) {
+    alert('No paid orders match the current filters — nothing to print.');
+    return;
+  }
+
+  const groups = groupByLocation(filtered);
+  const printedOn = new Date().toLocaleString('en-US',
+    { weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  const locLabel = locs.length ? locs.join(' + ') : 'All locations';
+
+  // Grand totals across the printed sections
+  let gOrders = 0, gBoxes = 0, gMoney = 0;
+
+  const sections = Object.entries(groups).map(([loc, orders]) => {
+    const boxes = orders.reduce((s,o)=>s+(o.totalBoxes||0),0);
+    const money = orders.reduce((s,o)=>s+(o.totalAmount||0),0);
+    gOrders += orders.length; gBoxes += boxes; gMoney += money;
+    const rows = orders.map(o => `
+      <tr>
+        <td class="chk">&#9744;</td>
+        <td class="oid">#${escapeHtml(String(o.orderId))}</td>
+        <td>${escapeHtml(o.customerName || '')}</td>
+        <td class="nowrap">${escapeHtml(String(o.phone == null ? '' : o.phone))}</td>
+        <td>${escapeHtml(varietyCell(o) || '')}</td>
+        <td class="ctr"><strong>${o.totalBoxes || 0}</strong></td>
+        <td class="ctr">$${formatNum(o.totalAmount)}</td>
+        <td class="status">${o.pickedUp ? 'Picked up' : ''}</td>
+        <td class="notes">${escapeHtml(o.notes || '')}</td>
+      </tr>`).join('');
+    return `
+      <section class="loc">
+        <h2>📍 ${escapeHtml(loc)}
+          <span class="loc-sum">${orders.length} order${orders.length!==1?'s':''} · ${boxes} box${boxes!==1?'es':''} · $${formatNum(money)} collected</span>
+        </h2>
+        <table>
+          <thead><tr>
+            <th class="chk">✓</th><th>Order</th><th>Customer</th><th>Phone</th>
+            <th>Varieties</th><th class="ctr">Boxes</th><th class="ctr">Paid</th>
+            <th>Status</th><th>Notes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </section>`;
+  }).join('');
+
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>TRU Mangoes — Paid Pickup List</title>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;margin:24px;font-size:12px}
+      header{border-bottom:3px solid #1F4A2C;padding-bottom:10px;margin-bottom:18px}
+      header h1{margin:0;color:#1F4A2C;font-size:20px}
+      header .meta{color:#555;font-size:12px;margin-top:4px}
+      header .meta strong{color:#1a1a1a}
+      section.loc{margin-bottom:26px}
+      section.loc h2{font-size:15px;color:#1F4A2C;margin:0 0 6px;border-bottom:1.5px solid #C8973A;padding-bottom:4px}
+      .loc-sum{font-weight:400;font-size:12px;color:#666;margin-left:8px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#f1ede2;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:6px 7px;border:1px solid #d8cfb8}
+      td{padding:7px;border:1px solid #e2dcc9;vertical-align:top}
+      td.chk,th.chk{width:26px;text-align:center;font-size:16px;line-height:1}
+      td.oid{font-family:monospace;white-space:nowrap}
+      td.ctr,th.ctr{text-align:center;white-space:nowrap}
+      td.nowrap{white-space:nowrap}
+      td.notes{color:#555;font-size:11px}
+      td.status{font-size:11px;color:#1B5E20;white-space:nowrap}
+      tbody tr:nth-child(even){background:#fbf9f2}
+      .grand{margin-top:18px;padding-top:10px;border-top:2px solid #1F4A2C;font-size:13px}
+      .grand strong{color:#1F4A2C}
+      @media print{
+        body{margin:12mm}
+        section.loc{page-break-inside:avoid}
+        .noprint{display:none}
+      }
+      .noprint{margin-bottom:16px}
+      .noprint button{padding:9px 18px;border:none;border-radius:6px;background:#1F4A2C;color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+    </style></head><body>
+    <div class="noprint"><button onclick="window.print()">🖨️ Print this page</button></div>
+    <header>
+      <h1>TRU Mangoes — Paid Pickup List</h1>
+      <div class="meta">Location filter: <strong>${escapeHtml(locLabel)}</strong> &nbsp;·&nbsp; Printed ${escapeHtml(printedOn)}</div>
+    </header>
+    ${sections}
+    <div class="grand">Totals printed: <strong>${gOrders}</strong> orders &nbsp;·&nbsp; <strong>${gBoxes}</strong> boxes &nbsp;·&nbsp; <strong>$${formatNum(gMoney)}</strong> collected</div>
+    </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow pop-ups for this site to print.'); return; }
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+  // Give the new window a moment to lay out before invoking print.
+  w.onload = () => { try { w.focus(); w.print(); } catch(e){} };
 }
 
 function renderOrders() {
