@@ -1156,6 +1156,7 @@ function renderOrders() {
     `<span style="background:#FBF6ED;border:1px solid #e6dfd0;padding:7px 13px;border-radius:8px;font-size:13px"><strong>$${formatNum(oRev)}</strong> total</span>`+
     `<span style="background:#FFF4D6;border:1px solid #C8973A;color:#8a5a00;padding:7px 13px;border-radius:8px;font-size:13px"><strong>${oUnpaid.length}</strong> unpaid · $${formatNum(oUnpaidAmt)} outstanding</span>`+
     bulkBtn+
+    `<button id="sel-cancel-btn" onclick="cancelSelected()" style="display:none;background:#A61E1E;color:#fff;border:none;padding:7px 13px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✕ Cancel selected</button>`+
     `</div>`;
   el.innerHTML = ordBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
@@ -1163,10 +1164,12 @@ function renderOrders() {
       <div class="loc-body">
         <table class="data-table">
           <thead><tr>
+            <th style="width:34px"><input type="checkbox" onclick="selectAllInTable(this)" title="Select all in this location"></th>
             <th>Order</th><th>Customer Details</th><th>Boxes</th><th>Total</th><th>Payment</th><th>Pickup</th>
           </tr></thead>
           <tbody>${orders.map(r => `
             <tr>
+              <td style="text-align:center"><input type="checkbox" class="row-sel" data-id="${r.orderId}" onclick="toggleSelect('${r.orderId}', this)" ${selectedToCancel.has(String(r.orderId)) ? 'checked' : ''}></td>
               <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate || ''}</small></td>
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
@@ -1177,6 +1180,49 @@ function renderOrders() {
         </table>
       </div>
     </div>`).join('');
+  updateSelCount();
+}
+
+// ============ SELECT-TO-CANCEL ============
+var selectedToCancel = new Set();
+function toggleSelect(id, cb) {
+  id = String(id);
+  if (cb.checked) selectedToCancel.add(id); else selectedToCancel.delete(id);
+  updateSelCount();
+}
+function selectAllInTable(headerCb) {
+  var table = headerCb.closest('table');
+  if (!table) return;
+  table.querySelectorAll('input.row-sel').forEach(function(cb){
+    cb.checked = headerCb.checked;
+    var id = String(cb.dataset.id);
+    if (headerCb.checked) selectedToCancel.add(id); else selectedToCancel.delete(id);
+  });
+  updateSelCount();
+}
+function updateSelCount() {
+  var btn = document.getElementById('sel-cancel-btn');
+  if (!btn) return;
+  var n = selectedToCancel.size;
+  if (n > 0) { btn.style.display = ''; btn.textContent = '✕ Cancel ' + n + ' selected'; }
+  else { btn.style.display = 'none'; _selArmed = false; }
+}
+
+// Cancel the orders the user ticked. Two-tap arm (no popup).
+var _selArmed = false, _selTimer = null;
+function cancelSelected() {
+  var ids = Array.from(selectedToCancel);
+  var btn = document.getElementById('sel-cancel-btn');
+  if (!ids.length) return;
+  if (!_selArmed) {
+    _selArmed = true;
+    if (btn) btn.textContent = '⚠ Tap again to cancel ' + ids.length + ' selected';
+    _selTimer = setTimeout(function(){ _selArmed = false; updateSelCount(); }, 4000);
+    return;
+  }
+  clearTimeout(_selTimer); _selArmed = false;
+  runCancel(ids);
+  selectedToCancel.clear();
 }
 
 // ============ LOCATION BREAKDOWN (Dashboard) ============
@@ -1474,21 +1520,36 @@ function bulkCancelUnpaidShown() {
     return;
   }
   clearTimeout(_bulkTimer); _bulkArmed = false;
-  doBulkCancel(ids);
+  runCancel(ids);
 }
-async function doBulkCancel(ids) {
-  toast('Cancelling ' + ids.length + ' unpaid orders…');
-  // Optimistic: flip them all locally, render once.
+
+// Shared cancel routine for both "cancel selected" and "cancel all unpaid shown".
+// Uses the EXISTING per-order cancelOrder endpoint (already live in your deployed
+// script) so it works even if the newer bulkCancel endpoint isn't published yet.
+// Optimistic: rows vanish immediately; the cancels run in the background.
+async function runCancel(ids) {
+  ids = ids.map(String);
+  toast('Cancelling ' + ids.length + ' order(s)…');
+  // 1) Optimistic local update — flip them all, render once.
   ids.forEach(function(id){
-    var o = (cachedData.orders || []).find(function(x){ return String(x.orderId) === String(id); });
+    var o = (cachedData.orders || []).find(function(x){ return String(x.orderId) === id; });
     if (o) { o.paymentStatus = 'Cancelled'; o.paymentReceived = false; }
   });
   rerenderFromCache();
-  try {
-    var r = await api('bulkCancel', {orderIds: ids.join(',')});
-    if (r && r.status === 'ok') toast('✓ ' + (r.message || ('Cancelled ' + ids.length + ' orders')));
-    else { toast('❌ ' + ((r && r.message) || 'Bulk cancel failed — refreshing'), true); refreshAll(); }
-  } catch (e) { toast('❌ Bulk cancel failed: ' + e, true); refreshAll(); }
+  // 2) Fire the server cancels in the background, a few at a time.
+  var ok = 0, fail = 0, idx = 0, BATCH = 5;
+  async function worker() {
+    while (idx < ids.length) {
+      var id = ids[idx++];
+      try { var r = await api('cancelOrder', {orderId: id}); if (r && r.status === 'ok') ok++; else fail++; }
+      catch (e) { fail++; }
+    }
+  }
+  var workers = [];
+  for (var w = 0; w < BATCH; w++) workers.push(worker());
+  await Promise.all(workers);
+  if (fail) { toast('✓ Cancelled ' + ok + ', ' + fail + ' failed — refreshing', true); refreshAll(); }
+  else toast('✓ Cancelled ' + ok + ' order(s). No emails sent.');
 }
 
 // ============ TOAST ============
