@@ -1052,7 +1052,7 @@ var TEST_KEY = (new URLSearchParams(location.search)).get('test') || '';
 // is reached. These values are just the initial state before that fetch
 // returns. Kesar stays sold out (not in this batch).
 const LIMIT_PER_BATCH=50;
-const SOLD_OUT={bangan:true,rasalu:true,himayat:true,kesar:true};
+const SOLD_OUT={bangan:false,rasalu:false,himayat:false,kesar:true};
 let q={bangan:0,kesar:0,rasalu:0,himayat:0},dc=0,pickupArea='';
 function chg(t,d){
   if(SOLD_OUT[t]) return;
@@ -1286,7 +1286,23 @@ document.addEventListener('click', function(e){
 // Sold-out renderer — applies to both the showcase v-card and the form selector card.
 function applySoldOutState(){
   Object.keys(SOLD_OUT).forEach(function(variety){
-    if(!SOLD_OUT[variety] || variety==='kesar') return; // Kesar is already styled as not-this-batch in HTML
+    if(variety==='kesar') return; // Kesar is already styled as not-this-batch in HTML
+    if(!SOLD_OUT[variety]){
+      // AVAILABLE — clear any prior sold-out styling so the card is orderable.
+      var fc=document.getElementById('card-'+variety);
+      if(fc){
+        fc.style.opacity='';
+        fc.style.pointerEvents='';
+        var oldTag=fc.querySelector('.vs-soldout-tag');
+        if(oldTag) oldTag.remove();
+      }
+      var sc=document.getElementById('showcase-'+variety);
+      if(sc){
+        var oldOv=sc.querySelector('.v-soldout-overlay');
+        if(oldOv) oldOv.remove();
+      }
+      return;
+    }
     // 1. Showcase v-card
     var showcase=document.getElementById('showcase-'+variety);
     if(showcase){
