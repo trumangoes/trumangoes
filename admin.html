@@ -492,46 +492,64 @@ let canOverride = false;
 let cachedData = {pending:[], paid:[], orders:[]};
 
 // ============ LOGIN ============
-async function login() {
+async function login(silent) {
   const user = document.getElementById('user-input').value.trim();
   const pw = document.getElementById('pw-input').value.trim();
   if (!user || !pw) {
-    document.getElementById('login-err').textContent = 'Enter both username and password';
+    if (!silent) document.getElementById('login-err').textContent = 'Enter both username and password';
     return;
   }
-  document.getElementById('login-err').textContent = 'Verifying…';
-  try {
-    const res = await fetch(API_URL + '?action=verify&user=' + encodeURIComponent(user) + '&pw=' + encodeURIComponent(pw));
-    const data = await res.json();
-    if (data.status === 'ok') {
-      userRole = data.role;
-      userName = data.username || user;
-      userPw = pw;
-      canOverride = !!data.canOverride;
-      localStorage.setItem('tru_admin_user', user);
-      localStorage.setItem('tru_admin_pw', pw);
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      const badge = document.getElementById('role-badge');
-      if (userRole === 'admin') {
-        badge.className = 'badge-role badge-admin';
-        badge.textContent = 'ADMIN';
-        var dz = document.getElementById('danger-zone');
-        if (dz) dz.style.display = 'block';
-      } else if (userRole === 'operator') {
-        badge.className = 'badge-role badge-operator';
-        badge.textContent = 'OPERATOR';
-      } else {
-        badge.className = 'badge-role badge-partner';
-        badge.textContent = 'PARTNER';
-      }
-      refreshAll();
-    } else {
-      document.getElementById('login-err').textContent = '❌ ' + (data.message || 'Wrong username or password');
+  if (!silent) document.getElementById('login-err').textContent = 'Verifying…';
+
+  // Apps Script keeps NO session — every request re-authenticates. A single
+  // transient failure (cold start returning HTML, a redirect, a network blip)
+  // used to drop you straight back to the login screen. We now retry a few
+  // times, and ONLY a genuine wrong-password clears your saved login.
+  let data = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(API_URL + '?action=verify&user=' +
+        encodeURIComponent(user) + '&pw=' + encodeURIComponent(pw));
+      data = await res.json();
+      if (data) break;
+    } catch (err) {
+      await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
     }
-  } catch (err) {
-    document.getElementById('login-err').textContent = '❌ Connection error: ' + err.message;
   }
+
+  if (data && data.status === 'ok') {
+    userRole = data.role;
+    userName = data.username || user;
+    userPw = pw;
+    canOverride = !!data.canOverride;
+    localStorage.setItem('tru_admin_user', user);
+    localStorage.setItem('tru_admin_pw', pw);
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const badge = document.getElementById('role-badge');
+    if (userRole === 'admin') {
+      badge.className = 'badge-role badge-admin';
+      badge.textContent = 'ADMIN';
+      var dz = document.getElementById('danger-zone');
+      if (dz) dz.style.display = 'block';
+    } else if (userRole === 'operator') {
+      badge.className = 'badge-role badge-operator';
+      badge.textContent = 'OPERATOR';
+    } else {
+      badge.className = 'badge-role badge-partner';
+      badge.textContent = 'PARTNER';
+    }
+    refreshAll();
+  } else if (data && data.code === 'unauthorized') {
+    // Real bad password — clear saved creds and show the login screen.
+    localStorage.removeItem('tru_admin_pw');
+    localStorage.removeItem('tru_admin_user');
+    document.getElementById('login-err').textContent = '❌ ' + (data.message || 'Wrong username or password');
+  } else if (!silent) {
+    // Transient/connection issue on a manual sign-in — let them retry, don't wipe anything.
+    document.getElementById('login-err').textContent = '❌ Connection issue — tap Sign In to retry.';
+  }
+  // silent auto-login + transient failure: stay put and do nothing (no bounce to login).
 }
 
 document.getElementById('pw-input').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
@@ -543,14 +561,14 @@ function logout() {
   location.reload();
 }
 
-// Auto-login if saved
+// Auto-login if saved (silent: a network blip won't bounce you to the login screen)
 window.addEventListener('load', () => {
   const savedUser = localStorage.getItem('tru_admin_user');
   const savedPw = localStorage.getItem('tru_admin_pw');
   if (savedUser && savedPw) {
     document.getElementById('user-input').value = savedUser;
     document.getElementById('pw-input').value = savedPw;
-    login();
+    login(true);
   }
 });
 

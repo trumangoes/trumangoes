@@ -1042,6 +1042,9 @@ function resetForm(){
 }
 
 const URL='https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec',PRICES={bangan:47,kesar:55,rasalu:52,himayat:55};
+// Test mode: open the site as  ...?test=YOUR_KEY  to place real end-to-end test
+// orders while pre-orders are closed to the public. Must match CONFIG.TEST_BYPASS_KEY in Code.gs.
+var TEST_KEY = (new URLSearchParams(location.search)).get('test') || '';
 // SOLD_OUT is now driven LIVE by the server. On page load we call
 // ?action=availability, which compares placed pre-orders against the
 // per-variety caps (Banganapalli 440, Rasalu 100, Himayat 70) set in
@@ -1080,7 +1083,7 @@ function submitOrder(){
   em2.style.display='none';
   const boxTotal=calcBoxTotal();
   const g=boxTotal+0;
-  const data={timestamp:new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}),firstName:fn,lastName:ln,email:em,phone:ph,city:cy,state:st,cityState:cy+', '+st,pickupLocation:pl,banganBoxes:q.bangan,kesarBoxes:q.kesar,rasaluBoxes:q.rasalu,himayatBoxes:q.himayat,totalBoxes:tb,delivery:'Pickup - '+pl,deliveryCost:0,boxTotal:boxTotal,grandTotal:g,source:document.getElementById('source').value,notes:document.getElementById('notes').value.trim()};
+  const data={timestamp:new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}),firstName:fn,lastName:ln,email:em,phone:ph,city:cy,state:st,cityState:cy+', '+st,pickupLocation:pl,banganBoxes:q.bangan,kesarBoxes:q.kesar,rasaluBoxes:q.rasalu,himayatBoxes:q.himayat,totalBoxes:tb,delivery:'Pickup - '+pl,deliveryCost:0,boxTotal:boxTotal,grandTotal:g,source:document.getElementById('source').value,notes:document.getElementById('notes').value.trim(),testKey:TEST_KEY};
   const btn=document.getElementById('submit-btn');btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting...';
   postOrderAttempt(data, 1);
 }
@@ -1125,6 +1128,12 @@ function postOrderAttempt(data, attempt){
     if (result && result.status === 'error' && result.code === 'sold_out') {
       showSubmitError(result.message || 'A selected variety just sold out. Please adjust your order.');
       refreshAvailability();
+      return;
+    }
+
+    // 1b) Pre-orders are closed to the public — never retry.
+    if (result && result.status === 'error' && result.code === 'closed') {
+      showSubmitError(result.message || 'Pre-orders are currently closed. Please check back soon.');
       return;
     }
 
@@ -1319,24 +1328,50 @@ function applySoldOutState(){
   });
   upd();
 }
-// Ask the server which varieties are sold out (caps reached) and apply it.
+// Ask the server which varieties are sold out (caps reached) and whether the
+// store is open, then apply it.
 function refreshAvailability(){
   try{
     fetch(URL + '?action=availability', { method:'GET' })
       .then(function(r){ return r.json(); })
       .then(function(res){
-        if(res && res.status==='ok' && res.data && res.data.soldOut){
-          var so = res.data.soldOut;
-          ['rasalu','himayat'].forEach(function(v){
+        if(res && res.status==='ok' && res.data){
+          var so = res.data.soldOut || {};
+          // Drive every variety from the server caps/sold counts.
+          ['bangan','rasalu','himayat','kesar'].forEach(function(v){
             if(typeof so[v] !== 'undefined') SOLD_OUT[v] = !!so[v];
           });
-          SOLD_OUT.bangan = true; // marked sold out for this batch
-          SOLD_OUT.kesar = true; // never available this batch
           applySoldOutState();
+
+          // Store-level gate: pre-orders closed + not a tester => disable the form.
+          // Testers (?test=KEY) keep ordering and see a TEST MODE banner.
+          if(res.data.open === false && !TEST_KEY){
+            applyStoreClosed();
+          } else if(TEST_KEY){
+            showTestBanner();
+          }
         }
       })
       .catch(function(e){ console.log('availability fetch failed:', e); });
   }catch(e){ console.log('availability error:', e); }
+}
+
+// Pre-orders closed to the public: disable submit + show a banner.
+function applyStoreClosed(){
+  var btn=document.getElementById('submit-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='Pre-Orders Closed'; btn.style.opacity='.6'; btn.style.cursor='not-allowed'; }
+  var em=document.getElementById('error-msg');
+  if(em){ em.style.display='block'; em.textContent='Pre-orders are currently closed. Join our WhatsApp group to hear when the next batch opens.'; }
+}
+
+// Small banner so testers know they're in test mode.
+function showTestBanner(){
+  if(document.getElementById('test-banner')) return;
+  var b=document.createElement('div');
+  b.id='test-banner';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#A61E1E;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:13px;letter-spacing:.04em;';
+  b.textContent='\u26A0 TEST MODE \u2014 these are real test orders (tagged in the sheet). Pre-orders are closed to the public.';
+  document.body.appendChild(b);
 }
 document.addEventListener('DOMContentLoaded', function(){
   applySoldOutState();   // apply initial state (kesar) immediately
