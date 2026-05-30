@@ -1145,7 +1145,7 @@ function renderPaid() {
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
               <td>${r.pickedUp
-                  ? statusPill('PICKED UP','status-picked') + adminOverride(r, 'pickup')
+                  ? statusPill('PICKED UP','status-picked') + adminOverride(r, 'pickup') + pickupMeta(r)
                   : actionButton(r, 'pickup')}</td>
             </tr>`).join('')}</tbody>
         </table>
@@ -1192,7 +1192,7 @@ function printPaid() {
         <td>${escapeHtml(varietyCell(o) || '')}</td>
         <td class="ctr"><strong>${o.totalBoxes || 0}</strong></td>
         <td class="ctr">$${formatNum(o.totalAmount)}</td>
-        <td class="status">${o.pickedUp ? 'Picked up' : ''}</td>
+        <td class="status">${o.pickedUp ? ('Picked up' + (o.pickupTime ? ' · ' + escapeHtml(o.pickupTime) : '')) : ''}</td>
         <td class="notes">${escapeHtml(o.notes || '')}</td>
       </tr>`).join('');
     return `
@@ -1565,6 +1565,33 @@ function renderLocationBreakdown() {
 
 function statusPill(text, cls) { return `<span class="status-pill ${cls}">${text}</span>`; }
 
+// Small "where + when picked up" line shown under the PICKED UP pill.
+// Location comes from the order; pickupTime is recorded by the backend when
+// the order is marked picked up (blank for older pickups done before this was added).
+function pickupMeta(r) {
+  const bits = [];
+  if (r.pickupLocation) bits.push('📍 ' + escapeHtml(r.pickupLocation));
+  if (r.pickupTime)     bits.push('🕒 ' + escapeHtml(r.pickupTime));
+  if (!bits.length) return '';
+  return `<div style="margin-top:5px;font-size:11px;color:#5a6b5f;line-height:1.6;font-weight:600">${bits.join('<br>')}</div>`;
+}
+
+// Current time formatted like the server stamp (Central, "M/d h:mm a"),
+// so a freshly-tapped pickup shows its time instantly before the next refresh.
+function nowStamp() {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    }).formatToParts(new Date());
+    const g = t => (parts.find(p => p.type === t) || {}).value || '';
+    return `${g('month')}/${g('day')} ${g('hour')}:${g('minute')} ${g('dayPeriod')}`;
+  } catch (e) {
+    const d = new Date();
+    return `${d.getMonth()+1}/${d.getDate()} ${d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`;
+  }
+}
+
 function actionButton(r, type) {
   // Released holds (admin-cancelled or auto-expired) are terminal — show the
   // status, no pay/pickup actions.
@@ -1578,6 +1605,7 @@ function actionButton(r, type) {
   if (done) {
     let html = `<span class="btn btn-disabled">${doneLabel}</span>`;
     if (canOverride) html += ' ' + adminOverride(r, type);
+    if (type === 'pickup') html += pickupMeta(r);
     return html;
   }
   // Pickup stays LOCKED until payment is received — you can't hand over boxes
@@ -1612,7 +1640,7 @@ async function markAction(orderId, type, btn) {
     return;
   }
   // Mark Picked Up: flip the row instantly, save in the background, no email.
-  localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+  localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up', pickupTime: nowStamp()});
   toast('✓ Picked up #' + orderId);
   api('markPickedUp', {orderId}).then(function(r){
     if (!r || r.status !== 'ok') {
@@ -1733,18 +1761,21 @@ async function saveNote(){
 async function undoAction(orderId, type, btn) {
   // Flip the row back instantly, save in the background. No popup.
   const action = (type === 'payment') ? 'unmarkPaymentReceived' : 'unmarkPickedUp';
+  const prevTime = type === 'pickup'
+    ? ((cachedData.orders || []).find(x => String(x.orderId) === String(orderId)) || {}).pickupTime
+    : null;
   if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending'});
-  else localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
+  else localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting', pickupTime:''});
   toast('✓ Undid ' + type + ' for #' + orderId);
   api(action, {orderId}).then(function(r){
     if (!r || r.status !== 'ok') {
       if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid'}); // revert
-      else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+      else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up', pickupTime: prevTime || nowStamp()});
       toast('❌ ' + ((r && r.message) || 'Undo failed — try again'), true);
     }
   }).catch(function(e){
     if (type === 'payment') localUpdateOrder(orderId, {paymentReceived:true, paymentStatus:'Paid'});
-    else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up'});
+    else localUpdateOrder(orderId, {pickedUp:true, pickupStatus:'Picked Up', pickupTime: prevTime || nowStamp()});
     toast('❌ Undo failed: ' + e, true);
   });
 }
