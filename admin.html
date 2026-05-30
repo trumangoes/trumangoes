@@ -448,6 +448,20 @@
   </div>
 </div>
 
+<!-- Pickup location modal -->
+<div class="modal-overlay" id="loc-modal">
+  <div class="modal-card" style="max-width:440px;text-align:left;">
+    <h3 style="text-align:center;">📍 Pickup Location <span id="loc-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 12px;">Set where this order was actually picked up. Changing it moves the order under that location and updates the 📍 shown on the row. A note of the change is kept on the order.</p>
+    <select id="loc-select" style="width:100%;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;background:#fff;"></select>
+    <input id="loc-other" type="text" placeholder="Type a custom location" maxlength="60" style="width:100%;box-sizing:border-box;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;margin-top:10px;display:none;" />
+    <div class="modal-pay-btns" style="margin-top:16px;">
+      <button onclick="saveLocation()">💾 Save location</button>
+    </div>
+    <button class="modal-cancel" onclick="closeLocationModal()">Cancel</button>
+  </div>
+</div>
+
 <!-- Per-variety price editor modal -->
 <div class="modal-overlay" id="price-modal">
   <div class="modal-card" style="max-width:460px;text-align:left">
@@ -1015,7 +1029,7 @@ function custCell(r) {
       ${r.email ? `<span title="Email">✉️ ${escapeHtml(r.email)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}
-    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
+    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button><button type="button" class="note-btn" onclick="openLocationModal('${r.orderId}')" style="margin-left:6px">📍 Location</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
 }
 
 function escapeHtml(s) {
@@ -1756,6 +1770,43 @@ async function saveNote(){
   const r = await api('saveNote', {orderId, note});
   if (r.status === 'ok') { toast('✓ Note saved'); refreshAll(); }
   else { toast('❌ ' + (r.message || 'Could not save note'), true); }
+}
+
+// ---- Pickup location modal ----
+let _locOrderId = null;
+function openLocationModal(orderId){
+  _locOrderId = orderId;
+  const o = findOrderById(orderId);
+  const cur = o ? (o.pickupLocation || '') : '';
+  document.getElementById('loc-modal-order').textContent = '#' + orderId;
+  const sel = document.getElementById('loc-select');
+  const opts = KNOWN_LOCATIONS.slice();
+  if (cur && opts.indexOf(cur) < 0) opts.unshift(cur); // keep any existing custom value as a choice
+  sel.innerHTML = opts.map(l => `<option value="${escapeHtml(l)}" ${l === cur ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')
+    + '<option value="__other__">Other / custom…</option>';
+  const other = document.getElementById('loc-other');
+  other.style.display = 'none'; other.value = '';
+  sel.onchange = function(){ other.style.display = (sel.value === '__other__') ? 'block' : 'none'; };
+  document.getElementById('loc-modal').style.display = 'flex';
+}
+function closeLocationModal(){
+  document.getElementById('loc-modal').style.display = 'none';
+  _locOrderId = null;
+}
+async function saveLocation(){
+  const orderId = _locOrderId;
+  if (!orderId) return;
+  const sel = document.getElementById('loc-select');
+  let loc = sel.value;
+  if (loc === '__other__') loc = (document.getElementById('loc-other').value || '').trim();
+  loc = (loc || '').trim();
+  if (!loc) { toast('Enter a pickup location', true); return; }
+  closeLocationModal();
+  localUpdateOrder(orderId, {pickupLocation: loc}); // moves the row to the right group instantly
+  toast('Saving location…');
+  const r = await api('setPickupLocation', {orderId, location: loc});
+  if (r && r.status === 'ok') { toast('✓ Pickup location updated'); refreshAll(); }
+  else { toast('❌ ' + ((r && r.message) || 'Could not save location'), true); refreshAll(); }
 }
 
 async function undoAction(orderId, type, btn) {
