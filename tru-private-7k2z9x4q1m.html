@@ -1042,13 +1042,14 @@ function resetForm(){
 }
 
 const URL='https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec',PRICES={bangan:47,kesar:55,rasalu:52,himayat:55};
-// ── PUBLIC SITE ──────────────────────────────────────────────────
-// This is the public page. It has NO test bypass: ordering only works
-// when the server reports the store OPEN (Code.gs PREORDERS_OPEN = true).
-// Testing happens ONLY on the private page (separate file, secret URL).
-var TEST_KEY = '';
-// Fail-safe: the order form starts LOCKED and only unlocks if the server
-// says pre-orders are open. If the availability check fails, it stays locked.
+// ── PRIVATE TEST PAGE (secret URL — not linked anywhere) ─────────
+// Deployed as: trumangoes.shop/tru-private-7k2z9x4q1m.html
+// This page is ALWAYS able to order (it carries the secret test key), so you
+// can run full pre-order → paid → picked-up cycles while the PUBLIC site stays
+// hard-locked. Orders placed here are tagged "*** TEST ORDER ***" in the sheet.
+// Must match CONFIG.TEST_BYPASS_KEY in Code.gs.
+var TEST_KEY = 'tru-test-9x7k2z';
+// (Form unlocks via the test key below; this initial value is just a starting point.)
 var PREORDERS_LOCKED = true;
 // SOLD_OUT is now driven LIVE by the server. On page load we call
 // ?action=availability, which compares placed pre-orders against the
