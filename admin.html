@@ -614,8 +614,22 @@ function gotoTab(name, pickupFilter) {
 async function api(action, params = {}) {
   let url = API_URL + '?action=' + action + '&user=' + encodeURIComponent(userName) + '&pw=' + encodeURIComponent(userPw);
   for (let k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
-  const res = await fetch(url);
-  return res.json();
+  // Retry up to 3x. Apps Script cold starts can return a redirect/HTML page
+  // instead of JSON; that used to look like a "failed save" and revert the
+  // row even when the write actually landed. We detect non-JSON and retry.
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { redirect: 'follow', cache: 'no-store' });
+      const text = (await res.text()).trim();
+      if (text.charAt(0) !== '{' && text.charAt(0) !== '[') throw new Error('Non-JSON (cold start?)');
+      return JSON.parse(text);
+    } catch (err) {
+      lastErr = err;
+      await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+    }
+  }
+  return { status: 'error', code: 'transport', message: 'Connection issue: ' + lastErr };
 }
 
 async function resetAllOrdersFromGui() {
@@ -1658,12 +1672,14 @@ async function markAction(orderId, type, btn) {
   toast('✓ Picked up #' + orderId);
   api('markPickedUp', {orderId}).then(function(r){
     if (!r || r.status !== 'ok') {
-      localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'}); // revert on failure
-      toast('❌ ' + ((r && r.message) || 'Save failed — try again'), true);
+      // Don't guess — reload the real state from the sheet so the screen
+      // matches reality (the write may have actually landed).
+      toast('⚠️ Could not confirm save — reloading from sheet…', true);
+      refreshAll();
     }
   }).catch(function(e){
-    localUpdateOrder(orderId, {pickedUp:false, pickupStatus:'Awaiting'});
-    toast('❌ Save failed: ' + e, true);
+    toast('⚠️ Could not confirm save — reloading from sheet…', true);
+    refreshAll();
   });
 }
 
@@ -1687,12 +1703,12 @@ async function confirmPayment(method) {
   toast('✓ Paid #' + orderId + ' (' + method + ')');
   api('markPaymentReceived', {orderId, method}).then(function(r){
     if (!r || r.status !== 'ok') {
-      localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending', paymentMethod:''}); // revert
-      toast('❌ ' + ((r && r.message) || 'Save failed — try again'), true);
+      toast('⚠️ Could not confirm payment save — reloading from sheet…', true);
+      refreshAll();
     }
   }).catch(function(e){
-    localUpdateOrder(orderId, {paymentReceived:false, paymentStatus:'Pending', paymentMethod:''});
-    toast('❌ Save failed: ' + e, true);
+    toast('⚠️ Could not confirm payment save — reloading from sheet…', true);
+    refreshAll();
   });
 }
 

@@ -1,0 +1,989 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TRU Mangoes — Ops Command Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg:#15100a; --bg2:#1d1610; --bg3:#271e14; --raise:#2f2417;
+  --line:#3a2d1d; --line2:#4a3a24;
+  --gold:#e8a92e; --gold-deep:#c8780a; --cream:#f7ecd8;
+  --text:#f3e9d6; --dim:#bca988; --faint:#8a785c;
+  --green:#7bbf6a; --amber:#e8a92e; --red:#e0654f; --blue:#6aa9c9;
+  --fdisp:'Fraunces',Georgia,serif; --fsans:'Hanken Grotesk',system-ui,sans-serif; --fmono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--fsans);color:var(--text);background:
+  radial-gradient(1200px 600px at 80% -10%, rgba(232,169,46,.07), transparent 60%),
+  radial-gradient(900px 500px at -10% 110%, rgba(200,120,10,.06), transparent 55%),
+  var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased;}
+button{font-family:var(--fsans);cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:var(--fsans)}
+.mono{font-family:var(--fmono)}
+.disp{font-family:var(--fdisp)}
+a{color:var(--gold)}
+
+/* boot */
+#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:200}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.brand-mark{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;background:radial-gradient(circle at 35% 30%,#ffcf5e,var(--gold-deep));box-shadow:0 8px 24px -6px rgba(232,169,46,.5),inset 0 2px 4px rgba(255,255,255,.4)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;font-weight:600;font-size:14px;padding:11px 16px;transition:.15s;border:1px solid transparent}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-gold{background:linear-gradient(180deg,var(--gold),var(--gold-deep));color:#241701;box-shadow:0 8px 20px -8px rgba(232,169,46,.6)}
+.btn-gold:hover{filter:brightness(1.07)}
+.btn-ghost{background:var(--bg3);border-color:var(--line);color:var(--text)}
+.btn-ghost:hover{border-color:var(--line2);background:var(--raise)}
+.btn-sm{padding:7px 12px;font-size:12.5px;border-radius:9px}
+.btn-block{width:100%}
+.inp{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:11px;padding:11px 13px;color:var(--text);font-size:14px;outline:none;transition:.15s}
+.inp:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(232,169,46,.13)}
+.inp::placeholder{color:var(--faint)}
+.field{margin-top:14px}
+.field label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;font-weight:600}
+
+.shell{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,var(--bg2),var(--bg));border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--dim);font-weight:500;font-size:14px;transition:.13s;margin-bottom:2px;width:100%;text-align:left;position:relative}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.on{background:linear-gradient(90deg,rgba(232,169,46,.16),rgba(232,169,46,.04));color:var(--cream)}
+.nav-item.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--gold)}
+.nav-badge{margin-left:auto;background:var(--gold-deep);color:#1a0f02;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line);background:rgba(21,16,10,.72);backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(123,191,106,.6)}70%{box-shadow:0 0 0 7px rgba(123,191,106,0)}100%{box-shadow:0 0 0 0 rgba(123,191,106,0)}}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:20px;border:1px solid var(--line);background:var(--bg3);color:var(--dim)}
+.chip select{background:none;border:none;color:var(--text);outline:none;font-weight:600;font-size:12px;font-family:var(--fsans)}
+.iconbtn{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--bg3);border:1px solid var(--line);color:var(--dim);flex:none}
+.iconbtn:hover{color:var(--text);border-color:var(--line2)}
+
+.page{padding:24px;max-width:1320px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.page-title{font-family:var(--fdisp);font-size:26px;font-weight:600;letter-spacing:-.01em;color:var(--cream)}
+.page-sub{color:var(--faint);font-size:13px;margin-top:2px}
+
+.card{background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--line);border-radius:16px;padding:18px}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.kpi{background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+.kpi .lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.kpi .val{font-family:var(--fdisp);font-size:26px;font-weight:600;margin-top:7px;color:var(--cream);line-height:1}
+.kpi .sub{font-size:11.5px;color:var(--dim);margin-top:6px}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sec-title{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--dim);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:7px;border:1px solid}
+.dotb{width:6px;height:6px;border-radius:50%;display:inline-block}
+
+.tbl-wrap{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg2)}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl thead th{text-align:left;padding:11px 14px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--bg3);border-bottom:1px solid var(--line)}
+.tbl tbody td{padding:12px 14px;border-bottom:1px solid var(--line)}
+.tbl tbody tr{transition:.1s}
+.tbl tbody tr.click{cursor:pointer}
+.tbl tbody tr.click:hover{background:var(--bg3)}
+.tbl tbody tr:last-child td{border-bottom:none}
+
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.search{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:230px}
+.search input{background:none;border:none;outline:none;color:var(--text);width:100%;font-size:13.5px}
+.sel{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:8px 11px;color:var(--text);font-size:13px;outline:none;font-family:var(--fsans)}
+.sel:focus{border-color:var(--gold)}
+
+.scrim{position:fixed;inset:0;background:rgba(8,5,2,.62);backdrop-filter:blur(3px);z-index:50;animation:fade .2s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:460px;max-width:94vw;background:linear-gradient(180deg,var(--bg2),var(--bg));border-left:1px solid var(--line);z-index:51;display:flex;flex-direction:column;animation:slide .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes slide{from{transform:translateX(40px);opacity:.4}to{transform:translateX(0);opacity:1}}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;max-width:94vw;max-height:90vh;overflow:auto;background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--line2);border-radius:18px;z-index:51;animation:pop .2s}
+@keyframes pop{from{transform:translate(-50%,-46%);opacity:0}to{transform:translate(-50%,-50%);opacity:1}}
+.drawer-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between}
+.drawer-body{padding:20px;overflow:auto;flex:1}
+.row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);gap:12px}
+.row .k{color:var(--faint);font-size:12.5px}
+.row .v{font-weight:600;font-size:13.5px;text-align:right}
+.empty{text-align:center;padding:44px;color:var(--faint)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--raise);border:1px solid var(--gold);color:var(--cream);padding:11px 18px;border-radius:11px;z-index:80;font-size:13.5px;font-weight:500;box-shadow:0 16px 40px -12px rgba(0,0,0,.7);animation:pop .2s}
+.progress{height:6px;border-radius:5px;background:var(--bg3);overflow:hidden;margin-top:10px}
+.progress>div{height:100%;border-radius:5px}
+.chartbox{position:relative;height:230px}
+.chartbox.sm{height:200px}
+svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.grid2,.grid3{grid-template-columns:1fr}.shell{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head><body>
+<div id="boot"><div class="brand-mark">🥭</div><div class="spin"></div><div style="color:var(--faint);font-size:13px">Loading…</div></div>
+<div id="app" style="display:none"></div><div id="overlay"></div><div id="toast"></div>
+<div style="position:fixed;bottom:10px;left:12px;font:12px/1 'IBM Plex Mono',monospace;color:#8a785c;z-index:5">LIVE · connected to your Google Sheet</div>
+<script>
+/* ===== REAL google.script.run — talks to your Apps Script /exec over HTTPS ===== */
+/* Drop-in replacement for the old mock. Same method names + return shapes the    */
+/* UI already expects, so none of the UI code below changes. Every write re-reads  */
+/* the sheet before resolving, so the screen can never disagree with the sheet.    */
+window.VIEWER_EMAIL = "";
+(function(){
+  // ⬇⬇ Your deployed Web App URL (same one the customer site + admin.html use). ⬇⬇
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzcqR6mZZW26kNz9b5sxW6H5bH_JaY0w5OHmPBr3XadjJKkLbn_d61wsTYk9SNVOB1V/exec';
+
+  // Prices mirror Code.gs CONFIG.PRICES (used for the New Order estimate + charts).
+  var VARS=[{id:'banganapalli',name:'Banganapalli',color:'#e8a92e',price:47},
+            {id:'kesar',name:'Kesar',color:'#f0b84a',price:55},
+            {id:'rasalu',name:'Rasalu',color:'#d9962a',price:52},
+            {id:'himayat',name:'Himayat',color:'#c8780a',price:55}];
+
+  function creds(){ return { u: localStorage.getItem('tru_admin_user')||'', p: localStorage.getItem('tru_admin_pw')||'' }; }
+  function todayStr(){ var d=new Date(); function p(n){return ('0'+n).slice(-2);} return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+  function nowIso(){ return new Date().toISOString(); }
+
+  // Hardened GET: retries 3x and detects Apps Script cold-start HTML (which is not
+  // JSON). This is what stops a save from "looking failed" when it actually landed.
+  function apiGet(action, params){
+    var c=creds();
+    var url=API_URL+'?action='+encodeURIComponent(action)+'&user='+encodeURIComponent(c.u)+'&pw='+encodeURIComponent(c.p);
+    if(params){ for(var k in params){ if(params[k]!=null) url+='&'+k+'='+encodeURIComponent(params[k]); } }
+    var attempt=0;
+    function tryOnce(){
+      return fetch(url,{redirect:'follow',cache:'no-store'})
+        .then(function(res){ return res.text(); })
+        .then(function(t){ t=(t||'').trim();
+          if(t.charAt(0)!=='{' && t.charAt(0)!=='[') throw new Error('Connection issue (cold start) — retrying');
+          return JSON.parse(t); })
+        .catch(function(e){ attempt++; if(attempt<3) return new Promise(function(r){setTimeout(r,700*attempt);}).then(tryOnce); throw e; });
+    }
+    return tryOnce();
+  }
+
+  // Backend order row (getOrdersData_) -> the order shape the UI renders.
+  function mapOrder(b){
+    var items=[['banganapalli','Banganapalli',+b.bangan||0],['kesar','Kesar',+b.kesar||0],
+               ['rasalu','Rasalu',+b.rasalu||0],['himayat','Himayat',+b.himayat||0]]
+      .filter(function(x){return x[2]>0;}).map(function(x){return {v:x[0],name:x[1],q:x[2]};});
+    var ps=String(b.paymentStatus||'').toLowerCase();
+    var cancelled=(ps==='cancelled'||ps==='canceled'||ps==='expired');
+    var paid=!!b.paymentReceived;
+    var pickedUp=!!b.pickedUp;
+    var pickupStatus=pickedUp?'picked_up':(paid?'awaiting':'not_picked');
+    var total=+b.totalAmount||0;
+    var ref='';
+    var o={ id:String(b.orderId), name:b.customerName||'', phone:b.phone||'', whatsapp:b.whatsapp||b.phone||'',
+      email:b.email||'', city:b.pickupLocation||b.city||'', items:items, totalBoxes:+b.totalBoxes||0, total:total,
+      paid:paid, cancelled:cancelled, paymentStatus:(paid?'paid':(cancelled?'cancelled':'unpaid')),
+      paymentMethod:b.paymentMethod||'', zelleRef:ref, paymentDate:'', pickedUp:pickedUp,
+      pickupStatus:pickupStatus, pickupLoc:b.pickupLocation||'', notes:b.notes||'', orderDate:b.orderDate||'' };
+    o.stamp=(paid?'P':cancelled?'X':'U')+'|'+pickupStatus+'|'+total+'|'+ref;
+    return o;
+  }
+  function locsFrom(orders){ var s={},out=[]; orders.forEach(function(o){ if(o.pickupLoc&&!s[o.pickupLoc]){s[o.pickupLoc]=1;out.push(o.pickupLoc);} }); return out; }
+  function findOrder(orders,id){ for(var i=0;i<orders.length;i++) if(orders[i].id===String(id)) return orders[i]; return null; }
+
+  function fetchOrders(){
+    return apiGet('orders',{}).then(function(r){
+      if(!r || r.status!=='ok') throw new Error((r&&(r.message||r.code))||'Could not load orders');
+      var orders=(r.data||[]).map(mapOrder);
+      return { orders:orders, locations:locsFrom(orders), varieties:VARS, today:todayStr() };
+    });
+  }
+  // After a write, re-read the sheet so the UI shows authoritative state (no mismatch).
+  function writeThenReread(action, params, id){
+    return apiGet(action, params).then(function(r){
+      if(!r || r.status!=='ok') throw new Error((r&&r.message)||'Save failed — try again');
+      return fetchOrders().then(function(d){ return { ok:true, order:findOrder(d.orders,id), savedAt:nowIso() }; });
+    });
+  }
+
+  // The "server": same names + shapes the UI calls. Each returns a Promise.
+  var SRV={
+    ping:function(){ return apiGet('verify',{}).then(function(r){ if(!r||r.status!=='ok') throw new Error('auth'); return {ok:true,time:nowIso(),user:r.username||creds().u}; }); },
+    getBootstrap:function(){ return fetchOrders().then(function(d){ return { user:creds().u, orders:d.orders, locations:d.locations, varieties:d.varieties, today:d.today,
+      zelle:{handle:'972-654-9231', name:'VSVV International', paypal:'', venmo:''}, otp:{required:false,channel:'manual',ttl:10} }; }); },
+    getOrders:function(){ return fetchOrders(); },
+    getOrder:function(id){ return fetchOrders().then(function(d){ return { order:findOrder(d.orders,id), savedAt:nowIso() }; }); },
+    recordPayment:function(id,ref,expect){ var method = ref ? ('Zelle · '+ref) : 'Zelle'; return writeThenReread('markPaymentReceived',{orderId:id,method:method},id); },
+    markPickedUp:function(id,expect){ return writeThenReread('markPickedUp',{orderId:id},id); },
+    updatePickupStatus:function(id,st,expect){ if(st==='picked_up') return SRV.markPickedUp(id,expect); return writeThenReread('unmarkPickedUp',{orderId:id},id); },
+    updateNotes:function(id,n){ return apiGet('saveNote',{orderId:id,note:n||''}).then(function(r){ if(!r||r.status!=='ok') throw new Error((r&&r.message)||'Save failed'); return {ok:true,order:null,savedAt:nowIso()}; }); },
+    createOrder:function(p){ var b=p.boxes||{}; return apiGet('createOrderAdmin',{ name:p.name, phone:p.phone||'', email:p.email||'', location:p.pickupLoc||'',
+      bangan:b.banganapalli||0, kesar:b.kesar||0, rasalu:b.rasalu||0, himayat:b.himayat||0, total:p.total||0 })
+      .then(function(r){ if(!r||r.status!=='ok') throw new Error((r&&r.message)||'Create failed'); return {ok:true, id:String(r.orderId), order:null, savedAt:(r.savedAt||nowIso())}; }); },
+    savePrices:function(prices){ return Promise.resolve({ok:true, varieties:VARS}); }, // prices live in Code.gs CONFIG
+    exportCsvToDrive:function(name,csv){ try{ var url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); return Promise.resolve({url:url}); }
+      catch(e){ return Promise.resolve({url:'data:text/csv;charset=utf-8,'+encodeURIComponent(csv)}); } },
+    // OTP disabled — pickups are one tap. Stubs kept so nothing breaks if called.
+    generatePickupOtp:function(id){ return Promise.reject(new Error('OTP is turned off')); },
+    verifyPickupOtp:function(id,code,expect){ return SRV.markPickedUp(id,expect); }
+  };
+
+  // Expose as google.script.run so the UI's existing bridge works unchanged.
+  var run={ _s:null,_f:null, withSuccessHandler:function(f){this._s=f;return this;}, withFailureHandler:function(f){this._f=f;return this;} };
+  Object.keys(SRV).forEach(function(name){ run[name]=function(){ var s=this._s,f=this._f,args=arguments;
+    Promise.resolve().then(function(){ return SRV[name].apply(null,args); }).then(function(r){ s&&s(r); }, function(e){ f&&f(e); }); return this; }; });
+  window.google={ script:{ run:run, host:{ close:function(){} } } };
+
+  // ---- Simple login gate (creates its own overlay; calls boot() on success) ----
+  window.__truLogin=function(){
+    var saved=creds();
+    function show(msg){
+      document.getElementById('boot').style.display='none';
+      var el=document.getElementById('app');
+      el.style.display='block';
+      el.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">'+
+        '<div class="card" style="width:340px;max-width:92vw">'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div class="brand-mark">🥭</div>'+
+        '<div><div class="disp" style="font-size:18px;color:var(--cream)">TRU Mangoes</div>'+
+        '<div style="font-size:11px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase">Ops Command Center</div></div></div>'+
+        '<div class="field"><label>Username</label><input class="inp" id="lgU" autocomplete="username" value="'+(saved.u||'')+'"></div>'+
+        '<div class="field"><label>Password</label><input class="inp" id="lgP" type="password" autocomplete="current-password"></div>'+
+        '<div id="lgErr" style="color:#e0654f;font-size:12.5px;margin-top:10px;min-height:16px">'+(msg||'')+'</div>'+
+        '<button class="btn btn-gold btn-block" style="margin-top:8px" id="lgBtn">Sign In</button></div></div>';
+      var go=function(){
+        var u=(document.getElementById('lgU').value||'').trim(), p=(document.getElementById('lgP').value||'').trim();
+        if(!u||!p){ document.getElementById('lgErr').textContent='Enter username and password'; return; }
+        document.getElementById('lgErr').textContent='Verifying…';
+        localStorage.setItem('tru_admin_user',u); localStorage.setItem('tru_admin_pw',p);
+        SRV.ping().then(function(){ document.getElementById('app').innerHTML=''; document.getElementById('boot').style.display='flex'; boot(); })
+          .catch(function(){ localStorage.removeItem('tru_admin_pw'); show('❌ Wrong username or password (or connection issue) — try again'); });
+      };
+      document.getElementById('lgBtn').onclick=go;
+      document.getElementById('lgP').addEventListener('keypress',function(e){ if(e.key==='Enter') go(); });
+    }
+    if(saved.u && saved.p){ SRV.ping().then(function(){ boot(); }).catch(function(){ show(''); }); }
+    else { show(''); }
+  };
+})();
+</script>
+<script>
+/* ===================== TRU MANGOES — CLIENT APP ===================== */
+
+/* Low-level server call (no health side-effects) */
+function runServer(fn,args){
+  return new Promise(function(res,rej){
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn].apply(google.script.run,args||[]);
+  });
+}
+/* App-level call: any success = session alive; any failure schedules a probe */
+function gcall(fn){
+  var args=Array.prototype.slice.call(arguments,1);
+  return runServer(fn,args).then(function(r){ onCallOk(); return r; },
+    function(e){ if(fn!=='ping') scheduleProbe(); throw e; });
+}
+
+var STATE={user:'',orders:[],locations:[],varieties:[],view:'dashboard',locFilter:'all',
+  lastSync:null,today:'',interval:20,countdown:20,selected:null,lastSaved:null,sessionFails:0,
+  zelle:{handle:'',name:'TRU Mangoes'},otp:{required:false,channel:'auto',ttl:10}};
+var CHARTS={},TIMER=null,TOAST_T=null,PROBE_T=null,DOWN_T=null,SESSION_DOWN=false;
+
+/* -------------------- session health -------------------- */
+function onCallOk(){ STATE.sessionFails=0; setLive('live'); if(SESSION_DOWN) recoverSession(); }
+function setLive(state){
+  var c=document.getElementById('liveChip'); if(!c) return;
+  if(state==='reconnecting'){ c.style.borderColor='#e8a92e'; c.style.color='#e8a92e'; c.innerHTML='<span class="live-dot" style="background:#e8a92e"></span> RECONNECTING'; }
+  else { c.style.borderColor='var(--green)'; c.style.color='var(--green)'; c.innerHTML='<span class="live-dot"></span> LIVE'; }
+}
+function scheduleProbe(){
+  if(PROBE_T||SESSION_DOWN) return;
+  PROBE_T=setTimeout(function(){ PROBE_T=null;
+    runServer('ping',[]).then(function(){ STATE.sessionFails=0; setLive('live'); },
+      function(){ STATE.sessionFails++; setLive('reconnecting'); if(STATE.sessionFails>=2) sessionExpired(); });
+  },500);
+}
+function sessionExpired(){
+  if(SESSION_DOWN) return; SESSION_DOWN=true; clearInterval(TIMER); setLive('reconnecting'); showSessionBar();
+  DOWN_T=setInterval(function(){ runServer('ping',[]).then(function(){ recoverSession(); }).catch(function(){}); },15000);
+}
+function recoverSession(){
+  SESSION_DOWN=false; STATE.sessionFails=0; clearInterval(DOWN_T); hideSessionBar(); setLive('live'); startTimers(); refresh(false); toast('✓ Reconnected — session is live');
+}
+function showSessionBar(){
+  var b=document.getElementById('sessionBar');
+  if(!b){ b=document.createElement('div'); b.id='sessionBar'; document.body.appendChild(b); }
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:120;background:linear-gradient(180deg,#3a2416,#2a1a10);border-bottom:1px solid #e8a92e;color:#f7ecd8;padding:11px 18px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px -10px rgba(0,0,0,.7)';
+  b.innerHTML='<span style="display:flex;align-items:center;gap:8px;color:#e8a92e">'+ic('lock',15)+'Your secure session may have expired or lost connection.</span>'+
+    '<span style="color:#bca988;font-weight:500">Trying to reconnect…</span>'+
+    '<button class="btn btn-gold btn-sm" onclick="location.reload()">Reload &amp; sign in</button>';
+}
+function hideSessionBar(){ var b=document.getElementById('sessionBar'); if(b) b.style.display='none'; }
+
+/* --------------------------- formatting -------------------------- */
+function money(n){ return '$'+Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0}); }
+function money2(n){ return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function vById(id){ for(var i=0;i<STATE.varieties.length;i++) if(STATE.varieties[i].id===id) return STATE.varieties[i]; return {name:id,color:'#e8a92e',est:0}; }
+function locName(x){ return x||'—'; }
+function itemsLabel(items){ return (items||[]).map(function(it){return it.q+'× '+(it.name||vById(it.v).name);}).join(', '); }
+function byId(id){ for(var i=0;i<STATE.orders.length;i++) if(STATE.orders[i].id===id) return STATE.orders[i]; return null; }
+
+var PAY={paid:{label:'Paid',color:'#7bbf6a'},unpaid:{label:'Unpaid',color:'#e0654f'},cancelled:{label:'Cancelled',color:'#8a785c'}};
+var PICK={picked_up:{label:'Picked Up',color:'#7bbf6a'},awaiting:{label:'Awaiting',color:'#6aa9c9'},not_picked:{label:'Not Picked',color:'#e8a92e'},pending:{label:'Pending',color:'#6aa9c9'}};
+function badge(m){ if(!m)m={label:'—',color:'#8a785c'}; return '<span class="badge" style="color:'+m.color+';border-color:'+m.color+'55;background:'+m.color+'14"><span class="dotb" style="background:'+m.color+'"></span>'+m.label+'</span>'; }
+
+/* ----- contextual action: Pay Now -> Mark Picked Up -> Completed ----- */
+function actionBtns(o,big){
+  var sm=big?'':' btn-sm';
+  if(o.cancelled) return '<span class="badge" style="color:#8a785c;border-color:#8a785c55;background:#8a785c14">Cancelled</span>';
+  if(!o.paid) return '<button class="btn btn-gold'+sm+'" onclick="event.stopPropagation();payPrompt(\''+o.id+'\')">'+ic('wallet',big?15:13)+' Pay Now</button>';
+  if(!o.pickedUp) return '<button class="btn btn-gold'+sm+'" onclick="event.stopPropagation();doPickedUp(\''+o.id+'\')">'+ic('check',big?15:13)+' Mark Picked Up</button>';
+  return '<span class="badge" style="color:#7bbf6a;border-color:#7bbf6a55;background:#7bbf6a14">'+ic('cc',12)+' Completed</span>';
+}
+
+/* ------------------------------ icons ---------------------------- */
+var IC={
+  dashboard:'M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z',
+  orders:'M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7L12 12l8.7-5M12 22V12',
+  truck:'M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 18.5A2.5 2.5 0 1 0 5.5 13.5a2.5 2.5 0 0 0 0 5zM18.5 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  wallet:'M21 12V7H5a2 2 0 0 1 0-4h14v4M3 5v14a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4z',
+  mappin:'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  chart:'M3 3v18h18M18 17V9M13 17V5M8 17v-3',
+  settings:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5.4 9.6l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 4.6V4a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 11H20a2 2 0 1 1 0 4z',
+  refresh:'M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.5 15',
+  logout:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  search:'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  x:'M18 6 6 18M6 6l12 12', plus:'M12 5v14M5 12h14', check:'M20 6 9 17l-5-5',
+  clock:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+  alert:'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  shield:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  dot:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+  download:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  phone:'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z',
+  mail:'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+  edit:'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z',
+  cc:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9 12l2 2 4-4',
+  trend:'M23 6l-9.5 9.5-5-5L1 18M17 6h6v6',
+  user:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  hash:'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18',
+  lock:'M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zM7 11V7a5 5 0 0 1 10 0v4'
+};
+function ic(name,sz){ var s=sz||16; return '<svg class="ic" viewBox="0 0 24 24" style="width:'+s+'px;height:'+s+'px"><path d="'+(IC[name]||'')+'"/></svg>'; }
+
+/* ----------------------------- toast / overlay ------------------- */
+function toast(msg){ var t=document.getElementById('toast'); t.innerHTML='<div class="toast">'+ic('check',15)+' '+esc(msg)+'</div>'; clearTimeout(TOAST_T); TOAST_T=setTimeout(function(){t.innerHTML='';},2400); }
+function overlay(html){ document.getElementById('overlay').innerHTML=html||''; }
+function closeOverlay(){ overlay(''); STATE.selected=null; }
+
+function visibleOrders(){ return STATE.locFilter==='all'?STATE.orders:STATE.orders.filter(function(o){return o.pickupLoc===STATE.locFilter;}); }
+
+/* =============================== BOOT ============================= */
+function boot(){
+  gcall('getBootstrap').then(function(b){
+    STATE.user=b.user; STATE.orders=b.orders; STATE.locations=b.locations||[]; STATE.varieties=b.varieties||[];
+    if(b.zelle) STATE.zelle=b.zelle;
+    if(b.otp) STATE.otp=b.otp;
+    STATE.today=b.today; STATE.lastSync=new Date();
+    if(window.Chart){ Chart.defaults.color='#8a785c'; Chart.defaults.font.family="'Hanken Grotesk',sans-serif"; Chart.defaults.borderColor='#3a2d1d'; }
+    document.getElementById('boot').style.display='none';
+    document.getElementById('app').style.display='block';
+    renderShell(); navigate('dashboard'); startTimers();
+  }).catch(function(e){
+    document.getElementById('boot').innerHTML='<div class="brand-mark">🥭</div><div style="color:#e0654f;max-width:380px;text-align:center">Could not load. '+esc(e&&e.message||e)+'<br><br><span style="color:#8a785c;font-size:13px">Run <b>setup()</b> once and confirm your account is on the allowlist in Code.gs.</span></div>';
+  });
+}
+function startTimers(){
+  clearInterval(TIMER); STATE.countdown=STATE.interval;
+  TIMER=setInterval(function(){ STATE.countdown--; if(STATE.countdown<=0) refresh(false); updateSync(); },1000);
+}
+function refresh(force){
+  gcall('getOrders').then(function(r){
+    STATE.orders=r.orders; STATE.today=r.today; STATE.locations=r.locations||STATE.locations;
+    if(r.varieties) STATE.varieties=r.varieties;
+    STATE.lastSync=new Date(); STATE.countdown=STATE.interval;
+    renderNavBadges(); renderView(); updateSync();
+    if(STATE.selected && byId(STATE.selected)) openOrder(STATE.selected);
+    if(force) toast('Live data re-pulled (no cache)');
+  }).catch(function(){});
+}
+function updateSync(){
+  var el=document.getElementById('syncTxt');
+  if(el&&STATE.lastSync) el.innerHTML='Synced <span class="mono" style="color:var(--dim)">'+STATE.lastSync.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span> · next pull <span class="mono" style="color:var(--gold)">'+STATE.countdown+'s</span>';
+}
+
+/* ============================== SHELL ============================= */
+var NAV=[['dashboard','Dashboard','dashboard'],['orders','Orders','orders'],['pickups','Pickups','truck'],
+  ['payments','Payments','wallet'],['locations','Locations','mappin'],['reports','Reports','chart'],['settings','Settings','settings']];
+
+function renderShell(){
+  var locOpts='<option value="all">All locations</option>'+STATE.locations.map(function(l){return '<option value="'+esc(l)+'">'+esc(l)+'</option>';}).join('');
+  document.getElementById('app').innerHTML=
+    '<div class="shell"><aside class="sidebar">'+
+      '<div style="display:flex;align-items:center;gap:11px;padding:4px 8px 18px"><div class="brand-mark">🥭</div>'+
+        '<div><div class="disp" style="font-size:16px;font-weight:600;color:var(--cream);line-height:1">TRU Mangoes</div>'+
+        '<div style="font-size:10px;color:var(--faint);letter-spacing:.09em;margin-top:3px">OPS COMMAND CENTER</div></div></div>'+
+      '<div id="navItems">'+NAV.map(navBtn).join('')+'</div>'+
+      '<div style="margin-top:auto">'+
+        '<div class="card" style="padding:13px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--green);font-weight:600">'+ic('dot',13)+' NO-CACHE · LIVE</div>'+
+        '<div style="font-size:11px;color:var(--faint);margin-top:6px;line-height:1.5">Every view re-reads your Google Sheet. Nothing is stored in the browser.</div></div>'+
+        '<button class="nav-item" onclick="signOut()" style="color:var(--dim)">'+ic('logout',17)+' Sign out</button>'+
+      '</div></aside><div class="main">'+
+      '<div class="topbar"><div class="chip" id="liveChip" style="border-color:var(--green);color:var(--green)"><span class="live-dot"></span> LIVE</div>'+
+        '<div id="syncTxt" style="font-size:12px;color:var(--faint)"></div>'+
+        '<button class="iconbtn" onclick="refresh(true)" title="Force re-pull">'+ic('refresh',15)+'</button><div style="flex:1"></div>'+
+        '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)">'+locOpts+'</select></div>'+
+        '<div class="chip" style="padding-right:10px"><span style="width:22px;height:22px;border-radius:7px;background:var(--gold-deep);color:#1a0f02;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">'+esc((STATE.user||'A').slice(0,1).toUpperCase())+'</span>'+esc(STATE.user||'authorized')+'</div>'+
+      '</div><div id="content"></div></div></div>';
+  updateSync();
+}
+function navBtn(n){
+  var b = n[0]==='pickups'? STATE.orders.filter(function(o){return o.paid&&!o.pickedUp&&!o.cancelled;}).length
+    : n[0]==='payments'? STATE.orders.filter(function(o){return !o.paid&&!o.cancelled;}).length : 0;
+  return '<button class="nav-item'+(STATE.view===n[0]?' on':'')+'" onclick="navigate(\''+n[0]+'\')">'+ic(n[2],17)+' '+n[1]+(b>0?'<span class="nav-badge">'+b+'</span>':'')+'</button>';
+}
+function renderNavBadges(){ var c=document.getElementById('navItems'); if(c) c.innerHTML=NAV.map(navBtn).join(''); }
+function setLocFilter(v){ STATE.locFilter=v; var sh=document.querySelector('.topbar select'); if(sh&&sh.value!==v) sh.value=v; renderView(); }
+function locFilterChip(){
+  return '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)">'+
+    '<option value="all"'+(STATE.locFilter==='all'?' selected':'')+'>All locations</option>'+
+    STATE.locations.map(function(l){return '<option value="'+esc(l)+'"'+(STATE.locFilter===l?' selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select></div>';
+}
+function signOut(){ clearInterval(TIMER); document.getElementById('app').innerHTML='<div id="boot" style="display:flex"><div class="brand-mark">🥭</div><div style="color:var(--faint);text-align:center;max-width:320px">Signed out.<br><br><a href="javascript:location.reload()">Sign back in</a></div></div>'; }
+function navigate(v){ STATE.view=v; renderNavBadges(); renderView(); }
+function renderView(){
+  var h='';
+  if(STATE.view==='dashboard') h=viewDashboard();
+  else if(STATE.view==='orders') h=viewOrders();
+  else if(STATE.view==='pickups') h=viewPickups();
+  else if(STATE.view==='payments') h=viewPayments();
+  else if(STATE.view==='locations') h=viewLocations();
+  else if(STATE.view==='reports') h=viewReports();
+  else if(STATE.view==='settings') h=viewSettings();
+  document.getElementById('content').innerHTML=h;
+  if(STATE.view==='dashboard') drawDashboardCharts();
+  if(STATE.view==='reports') drawReportsCharts();
+  if(STATE.view==='orders') renderOrdersTable();
+}
+
+/* ============================ DASHBOARD =========================== */
+function viewDashboard(){
+  var o=visibleOrders();
+  var active=o.filter(function(x){return !x.cancelled;});
+  var gross=active.reduce(function(s,x){return s+x.total;},0);
+  var collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+  var awaiting=o.filter(function(x){return x.paid&&!x.pickedUp&&!x.cancelled;}).length;
+  var pickedUp=o.filter(function(x){return x.pickedUp;}).length;
+  var unpaid=o.filter(function(x){return !x.paid&&!x.cancelled;}).length;
+  var k=[['Total Orders',active.length,'active (excl. cancelled)',''],
+    ['Gross Revenue',money(gross),'booked',''],
+    ['Collected',money(collected),'via Zelle','var(--green)'],
+    ['Outstanding',money(gross-collected),unpaid+' awaiting payment',(gross-collected)>0?'var(--red)':'var(--green)'],
+    ['Awaiting Pickup',awaiting,'paid · not collected','var(--gold)'],
+    ['Picked Up',pickedUp,'completed','var(--blue)']];
+  var kpis=k.map(function(x){return '<div class="kpi"><div class="lab">'+x[0]+'</div><div class="val"'+(x[3]?' style="color:'+x[3]+'"':'')+'>'+x[1]+'</div><div class="sub">'+x[2]+'</div></div>';}).join('');
+  var queue=o.filter(function(x){return !x.cancelled && !(x.paid&&x.pickedUp);});
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Dashboard</div><div class="page-sub">Live operational snapshot · pulled fresh from your sheet</div></div>'+locFilterChip()+'</div>'+
+    '<div class="kpi-grid">'+kpis+'</div>'+
+    '<div class="grid2" style="margin-top:14px">'+
+      '<div class="card"><div class="sec-title">'+ic('trend',15)+' Orders & Revenue</div><div class="chartbox"><canvas id="chRev"></canvas></div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('wallet',15)+' Payment Status</div><div class="chartbox sm"><canvas id="chPay"></canvas></div></div>'+
+    '</div><div class="grid2" style="margin-top:14px">'+
+      '<div class="card"><div class="sec-title">'+ic('orders',15)+' Boxes by Variety</div><div class="chartbox sm"><canvas id="chVar"></canvas></div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('mappin',15)+' Revenue by Location</div><div class="chartbox sm"><canvas id="chLoc"></canvas></div></div>'+
+    '</div>'+
+    '<div class="card" style="margin-top:14px"><div class="sec-title">'+ic('alert',15)+' Action Queue — needs payment or pickup</div>'+
+      (queue.length?actionTable(queue.slice(0,10)):'<div class="empty">🎉 Nothing pending — all orders paid & collected.</div>')+'</div></div>';
+}
+function actionTable(list){
+  var rows=list.map(function(o){
+    return '<tr class="click" onclick="openOrder(\''+o.id+'\')"><td class="mono" style="color:var(--gold)">'+esc(o.id)+'</td>'+
+      '<td>'+esc(o.name)+'</td><td style="color:var(--dim);font-size:12.5px">'+esc(itemsLabel(o.items))+'</td>'+
+      '<td class="mono">'+money(o.total)+'</td><td>'+badge(PAY[o.paymentStatus])+'</td><td>'+badge(PICK[o.pickupStatus])+'</td>'+
+      '<td style="color:var(--dim);font-size:12.5px">'+esc(o.pickupLoc)+'</td>'+
+      '<td onclick="event.stopPropagation()">'+actionBtns(o)+'</td></tr>';
+  }).join('');
+  return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Pickup</th><th>Location</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function drawDashboardCharts(){
+  Object.keys(CHARTS).forEach(function(k){ if(CHARTS[k]) CHARTS[k].destroy(); });
+  var o=visibleOrders().filter(function(x){return !x.cancelled;});
+  var tip={backgroundColor:'#271e14',borderColor:'#4a3a24',borderWidth:1,titleColor:'#f3e9d6',bodyColor:'#bca988'};
+  var byd={}; o.forEach(function(x){ if(!x.orderDate)return; byd[x.orderDate]=(byd[x.orderDate]||0)+x.total; });
+  var dates=Object.keys(byd).sort();
+  var c1=document.getElementById('chRev');
+  if(c1){var g=c1.getContext('2d').createLinearGradient(0,0,0,220);g.addColorStop(0,'rgba(232,169,46,.5)');g.addColorStop(1,'rgba(232,169,46,0)');
+    CHARTS.rev=new Chart(c1,{type:'line',data:{labels:dates.map(function(d){return d.slice(5);}),datasets:[{data:dates.map(function(d){return byd[d];}),borderColor:'#e8a92e',backgroundColor:g,fill:true,tension:.35,borderWidth:2,pointRadius:0}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip},scales:{x:{grid:{display:false}},y:{grid:{color:'#3a2d1d'},ticks:{callback:function(v){return '$'+v;}}}}}});}
+  var all=visibleOrders();
+  var pc=[all.filter(function(x){return x.paid;}).length,all.filter(function(x){return !x.paid&&!x.cancelled;}).length,all.filter(function(x){return x.cancelled;}).length];
+  var c2=document.getElementById('chPay');
+  if(c2) CHARTS.pay=new Chart(c2,{type:'doughnut',data:{labels:['Paid','Unpaid','Cancelled'],datasets:[{data:pc,backgroundColor:['#7bbf6a','#e0654f','#8a785c'],borderWidth:0}]},options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14}},tooltip:tip}}});
+  var vm={}; o.forEach(function(x){x.items.forEach(function(it){vm[it.v]=(vm[it.v]||0)+it.q;});});
+  var vs=STATE.varieties.map(function(v){return {n:v.name,q:vm[v.id]||0,c:v.color};}).sort(function(a,b){return b.q-a.q;});
+  var c3=document.getElementById('chVar');
+  if(c3) CHARTS.varc=new Chart(c3,{type:'bar',data:{labels:vs.map(function(v){return v.n;}),datasets:[{data:vs.map(function(v){return v.q;}),backgroundColor:vs.map(function(v){return v.c;}),borderRadius:5}]},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip},scales:{x:{grid:{color:'#3a2d1d'}},y:{grid:{display:false}}}}});
+  var lm={}; o.forEach(function(x){if(x.pickupLoc)lm[x.pickupLoc]=(lm[x.pickupLoc]||0)+x.total;});
+  var le=Object.keys(lm).map(function(id){return {n:id,r:lm[id]};}).sort(function(a,b){return b.r-a.r;});
+  var c4=document.getElementById('chLoc');
+  if(c4) CHARTS.loc=new Chart(c4,{type:'bar',data:{labels:le.map(function(x){return x.n;}),datasets:[{data:le.map(function(x){return x.r;}),backgroundColor:'#c8780a',borderRadius:6}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip},scales:{x:{grid:{display:false}},y:{grid:{color:'#3a2d1d'},ticks:{callback:function(v){return '$'+v;}}}}}});
+}
+
+/* ============================== ORDERS ============================ */
+var OF={q:'',pay:'all',pick:'all'};
+function viewOrders(){
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Orders</div><div class="page-sub" id="ordCount"></div></div>'+
+    '<button class="btn btn-gold btn-sm" onclick="openNewOrder()">'+ic('plus',15)+' New Order</button></div>'+
+    '<div class="toolbar"><div class="search">'+ic('search',15)+'<input id="ordQ" placeholder="Search order, name, phone…" value="'+esc(OF.q)+'" oninput="OF.q=this.value;renderOrdersTable()"></div>'+
+      '<select class="sel" onchange="setLocFilter(this.value)"><option value="all"'+(STATE.locFilter==='all'?' selected':'')+'>All locations</option>'+STATE.locations.map(function(l){return '<option value="'+esc(l)+'"'+(STATE.locFilter===l?' selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select>'+
+      '<select class="sel" onchange="OF.pay=this.value;renderOrdersTable()"><option value="all">All payments</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="cancelled">Cancelled</option></select>'+
+      '<select class="sel" onchange="OF.pick=this.value;renderOrdersTable()"><option value="all">All pickup</option><option value="not_picked">Not Picked</option><option value="awaiting">Awaiting</option><option value="picked_up">Picked Up</option></select>'+
+      '<div style="flex:1"></div><button class="btn btn-ghost btn-sm" onclick="exportOrders()">'+ic('download',14)+' Export CSV</button></div><div id="ordTbl"></div></div>';
+}
+function filteredOrders(){
+  return visibleOrders().filter(function(o){
+    if(OF.pay!=='all'&&o.paymentStatus!==OF.pay) return false;
+    if(OF.pick!=='all'&&o.pickupStatus!==OF.pick) return false;
+    if(OF.q){var s=OF.q.toLowerCase(); if(!(o.id.toLowerCase().indexOf(s)>=0||o.name.toLowerCase().indexOf(s)>=0||(o.phone||'').indexOf(s)>=0)) return false;}
+    return true;
+  });
+}
+function renderOrdersTable(){
+  var f=filteredOrders(), cc=document.getElementById('ordCount');
+  if(cc) cc.textContent=f.length+' of '+visibleOrders().length+' orders';
+  var el=document.getElementById('ordTbl'); if(!el) return;
+  if(!f.length){ el.innerHTML='<div class="empty">No orders match your filters.</div>'; return; }
+  var rows=f.map(function(o){
+    return '<tr class="click" onclick="openOrder(\''+o.id+'\')"><td class="mono" style="color:var(--gold)">'+esc(o.id)+'</td>'+
+      '<td>'+esc(o.name)+'<div style="font-size:11.5px;color:var(--faint)">'+esc(o.phone)+'</div></td>'+
+      '<td style="color:var(--dim);font-size:12.5px;max-width:180px">'+esc(itemsLabel(o.items))+'</td>'+
+      '<td class="mono">'+money(o.total)+'</td><td>'+badge(PAY[o.paymentStatus])+'</td><td>'+badge(PICK[o.pickupStatus])+'</td>'+
+      '<td style="color:var(--dim);font-size:12.5px">'+esc(o.pickupLoc)+'</td>'+
+      '<td onclick="event.stopPropagation()">'+actionBtns(o)+'</td></tr>';
+  }).join('');
+  el.innerHTML='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Pickup</th><th>Location</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function exportOrders(){
+  var f=filteredOrders();
+  var head=['Order','Customer','Phone','Email','Items','TotalBoxes','Total','PaymentStatus','PaymentRef','PickupStatus','PickupLocation','OrderDate'];
+  var rows=f.map(function(o){return [o.id,o.name,o.phone,o.email,itemsLabel(o.items),o.totalBoxes,o.total,o.paymentStatus,o.zelleRef,o.pickupStatus,o.pickupLoc,o.orderDate];});
+  var csv=[head].concat(rows).map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  toast('Exporting to your Drive…');
+  gcall('exportCsvToDrive','tru_orders',csv).then(function(r){ window.open(r.url,'_blank'); toast('CSV saved to Drive'); }).catch(function(){toast('Export failed');});
+}
+
+/* ---------------------- Zelle payment request ---------------------- */
+// Zelle has no payment URLs/API, so we generate an order-specific REQUEST the
+// customer follows in their own bank's Zelle: our handle + exact amount + Order ID memo.
+function zelleMsg(o){
+  var z=STATE.zelle||{}, hand=z.handle||'(your Zelle handle — set in Settings)', name=z.name||'TRU Mangoes';
+  return 'Hi '+(o.name||'there')+'! Your '+name+' order '+o.id+' is '+money2(o.total)+'.\n'+
+    'Please pay by Zelle to: '+hand+'\n'+
+    'IMPORTANT: put your Order ID "'+o.id+'" in the Zelle memo/note so we can match your payment.\n'+
+    'Thank you! 🥭';
+}
+function digits_(s){ var d=String(s||'').replace(/\D/g,''); if(d.length===10) d='1'+d; return d; }
+function waLink(o){ var d=digits_(o.whatsapp||o.phone); return d?'https://wa.me/'+d+'?text='+encodeURIComponent(zelleMsg(o)):''; }
+function smsLink(o){ var d=digits_(o.phone||o.whatsapp); return d?'sms:+'+d+'?&body='+encodeURIComponent(zelleMsg(o)):''; }
+function mailLink(o){ if(!o.email) return ''; return 'mailto:'+encodeURIComponent(o.email)+'?subject='+encodeURIComponent((STATE.zelle&&STATE.zelle.name||'TRU Mangoes')+' — Payment for order '+o.id)+'&body='+encodeURIComponent(zelleMsg(o)); }
+// Optional one-tap pay links (these rails DO support amount-prefilled URLs, unlike Zelle).
+function paypalLink(o){ var h=(STATE.zelle&&STATE.zelle.paypal)||''; return h?'https://www.paypal.com/paypalme/'+encodeURIComponent(h)+'/'+(Number(o.total||0))+'USD':''; }
+function venmoLink(o){ var h=((STATE.zelle&&STATE.zelle.venmo)||'').replace(/^@/,''); return h?'https://venmo.com/'+encodeURIComponent(h)+'?txn=pay&amount='+(Number(o.total||0))+'&note='+encodeURIComponent('Order '+o.id):''; }
+function copyText(t){
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t); toast('✓ Copied'); return; } }catch(e){}
+  var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('✓ Copied'); }catch(e){ toast('Copy failed — select and copy manually'); } document.body.removeChild(ta);
+}
+function copyZelle(id){ var o=byId(id); if(o) copyText(zelleMsg(o)); }
+function zelleRequestBlock(o){
+  if(o.paid||o.cancelled) return '';
+  var z=STATE.zelle||{}, noHandle=!z.handle;
+  var wa=waLink(o), sms=smsLink(o), ml=mailLink(o);
+  var btn=function(href,label,icon){ return href?'<a class="btn btn-ghost btn-sm" href="'+href+'" target="_blank" rel="noopener" style="text-decoration:none">'+ic(icon,14)+' '+label+'</a>':''; };
+  var pp=paypalLink(o), vm=venmoLink(o);
+  var alt=(pp||vm)?'<div style="margin-top:9px;font-size:11.5px;color:var(--faint)">One-tap alternatives (amount prefilled):</div><div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:5px">'+btn(pp,'PayPal','wallet')+btn(vm,'Venmo','wallet')+'</div>':'';
+  return '<div class="sec-title" style="margin-top:18px">'+ic('wallet',14)+' Request Payment (Zelle)</div>'+
+    (noHandle?'<div style="font-size:12px;color:#e8a92e;margin-bottom:8px">Set your Zelle handle in Settings to fill these in.</div>':'')+
+    '<div style="background:rgba(232,169,46,.07);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:9px;white-space:pre-wrap;font-size:12.5px;color:var(--dim);line-height:1.5">'+esc(zelleMsg(o))+'</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:7px">'+
+      '<button class="btn btn-gold btn-sm" onclick="copyZelle(\''+o.id+'\')">'+ic('edit',14)+' Copy message</button>'+
+      btn(wa,'WhatsApp','phone')+btn(sms,'Text','phone')+btn(ml,'Email','mail')+
+    '</div>'+alt;
+}
+
+/* ---------------------------- order drawer ----------------------- */
+function openOrder(id){
+  STATE.selected=id; var o=byId(id); if(!o) return;
+  var itemRows=o.items.length?o.items.map(function(it){return '<tr><td><span class="dotb" style="background:'+vById(it.v).color+';margin-right:8px"></span>'+esc(it.name)+'</td><td class="mono" style="text-align:right">'+it.q+' box'+(it.q>1?'es':'')+'</td></tr>';}).join(''):'<tr><td colspan=2 style="color:var(--faint)">No boxes recorded.</td></tr>';
+  // contextual workflow block
+  var workflow;
+  if(o.cancelled){ workflow='<div class="card" style="border-color:#8a785c55"><div style="color:var(--faint)">This order is cancelled.</div></div>'; }
+  else if(!o.paid){
+    workflow='<div class="card"><div class="sec-title" style="margin-bottom:10px">'+ic('wallet',14)+' Step 1 — Collect Payment</div>'+
+      '<div style="display:flex;gap:8px"><input class="inp" id="zRef" placeholder="Zelle confirmation # (optional)" value="'+esc(o.zelleRef)+'">'+
+      '<button class="btn btn-gold" onclick="confirmPay(\''+o.id+'\')">'+ic('check',15)+' Pay Now</button></div>'+
+      '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;color:var(--faint);font-size:12.5px">'+ic('lock',13)+' Pickup is locked until payment is recorded.</div></div>';
+  } else if(!o.pickedUp){
+    workflow='<div class="card"><div style="display:flex;align-items:center;gap:8px;color:var(--green);font-size:13px;margin-bottom:12px">'+ic('cc',15)+' Paid'+(o.zelleRef?' · ref '+esc(o.zelleRef):'')+(o.paymentDate?' · '+esc(o.paymentDate):'')+'</div>'+
+      '<div class="sec-title" style="margin-bottom:10px">'+ic('truck',14)+' Step 2 — Hand Over Order</div>'+
+      '<button class="btn btn-gold btn-block" onclick="doPickedUp(\''+o.id+'\')">'+ic('check',15)+' Mark as Picked Up</button>'+
+      '<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" onclick="setPickup(\''+o.id+'\',\'awaiting\')">Set Awaiting</button></div>';
+  } else {
+    workflow='<div class="card" style="border-color:#7bbf6a55"><div style="display:flex;align-items:center;gap:8px;color:var(--green);font-weight:600">'+ic('cc',16)+' Completed — paid & picked up</div>'+
+      '<button class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" onclick="setPickup(\''+o.id+'\',\'awaiting\')">Undo pickup</button></div>';
+  }
+  overlay('<div class="scrim" onclick="closeOverlay()"></div><div class="drawer">'+
+    '<div class="drawer-head"><div><div class="mono" style="color:var(--gold);font-size:13px">Order '+esc(o.id)+'</div>'+
+      '<div class="disp" style="font-size:21px;font-weight:600;color:var(--cream);margin-top:3px">'+esc(o.name)+'</div>'+
+      '<div style="display:flex;gap:8px;margin-top:8px">'+badge(PAY[o.paymentStatus])+badge(PICK[o.pickupStatus])+'</div></div>'+
+      '<button class="iconbtn" onclick="closeOverlay()">'+ic('x',16)+'</button></div>'+
+    '<div class="drawer-body">'+
+      ((STATE.lastSaved&&STATE.lastSaved.id===o.id)?'<div style="display:flex;align-items:center;gap:8px;background:#7bbf6a14;border:1px solid #7bbf6a55;color:#7bbf6a;border-radius:10px;padding:9px 12px;margin-bottom:14px;font-size:12.5px;font-weight:600">'+ic('cc',15)+' Saved to Google Sheet at '+fmtTime(STATE.lastSaved.at)+'</div>':'')+
+      '<div style="display:flex;flex-wrap:wrap;gap:14px;color:var(--dim);font-size:13px;margin-bottom:16px">'+
+        (o.phone?'<span style="display:flex;align-items:center;gap:6px">'+ic('phone',13)+esc(o.phone)+'</span>':'')+
+        (o.email?'<span style="display:flex;align-items:center;gap:6px">'+ic('mail',13)+esc(o.email)+'</span>':'')+
+        (o.pickupLoc?'<span style="display:flex;align-items:center;gap:6px">'+ic('mappin',13)+esc(o.pickupLoc)+'</span>':'')+'</div>'+
+      workflow+
+      '<div class="sec-title" style="margin-top:18px">'+ic('orders',14)+' Boxes</div>'+
+      '<div class="tbl-wrap" style="margin-bottom:16px"><table class="tbl"><tbody>'+itemRows+'</tbody></table></div>'+
+      '<div class="row"><span class="k">Total Boxes</span><span class="v mono">'+o.totalBoxes+'</span></div>'+
+      '<div class="row"><span class="k">Total Amount</span><span class="v mono disp" style="font-size:18px;color:var(--gold)">'+money2(o.total)+'</span></div>'+
+      '<div class="row"><span class="k">Order Date</span><span class="v mono">'+esc(o.orderDate||'—')+'</span></div>'+
+      zelleRequestBlock(o)+
+      '<div class="sec-title" style="margin-top:18px">'+ic('edit',14)+' Notes</div>'+
+      '<textarea class="inp" id="oNotes" rows="3" placeholder="Internal notes…">'+esc(o.notes)+'</textarea>'+
+      '<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" onclick="doNotes(\''+o.id+'\')">Save Notes</button>'+
+    '</div></div>');
+  // Pull this order fresh from the sheet; if it changed since the list snapshot, re-render with the latest.
+  if(!o._fresh){
+    gcall('getOrder',id).then(function(r){
+      if(r&&r.order&&STATE.selected===id){
+        var prev=byId(id); STATE.orders=STATE.orders.map(function(x){return x.id===id?r.order:x;});
+        if(!prev||prev.stamp!==r.order.stamp){ r.order._fresh=true; openOrder(id); r.order._fresh=false; renderNavBadges(); renderView(); }
+      }
+    }).catch(function(){});
+  }
+}
+function localPatch(id,patch){ STATE.orders=STATE.orders.map(function(o){return o.id===id?Object.assign({},o,patch):o;}); }
+function fmtTime(iso){ if(!iso) return ''; var t=String(iso).split('T')[1]||''; return t.slice(0,8); }
+// Apply the server's read-back (authoritative sheet state) and remember when it saved.
+function applyConfirmed(id,r,fallback){
+  if(r && r.order){ STATE.orders=STATE.orders.map(function(o){return o.id===id?r.order:o;}); }
+  else if(fallback){ localPatch(id,fallback); }
+  if(r && r.savedAt) STATE.lastSaved={id:id, at:r.savedAt};
+}
+function savedToast(id,verb,r){ toast('✓ '+verb+' · '+id+(r&&r.savedAt?' — saved to sheet '+fmtTime(r.savedAt):'')); }
+function stampOf(id){ var o=byId(id); return o?o.stamp:''; }
+// Server refused because the row changed underneath us — show the latest, don't clobber.
+function staleNotice(id,r){
+  if(r&&r.order){ STATE.orders=STATE.orders.map(function(o){return o.id===id?r.order:o;}); }
+  renderNavBadges(); renderView(); if(STATE.selected) openOrder(id);
+  toast('⚠ '+id+' was updated elsewhere — loaded the latest. Review & retry.');
+}
+
+function confirmPay(id){
+  var ref=(document.getElementById('zRef')||{}).value||'';
+  toast('Recording payment…');
+  gcall('recordPayment',id,ref,stampOf(id)).then(function(r){ if(r.stale){staleNotice(id,r);return;} applyConfirmed(id,r,{paid:true,paymentStatus:'paid',zelleRef:ref}); renderNavBadges(); renderView(); openOrder(id); savedToast(id,'Paid',r); }).catch(function(e){toast('Failed: '+(e.message||e));});
+}
+function doPickedUp(id){
+  if(STATE.otp&&STATE.otp.required){ openOtpModal(id); return; }
+  toast('Marking picked up…');
+  gcall('markPickedUp',id,stampOf(id)).then(function(r){ if(r.stale){staleNotice(id,r);return;} applyConfirmed(id,r,{pickedUp:true,pickupStatus:'picked_up'}); renderNavBadges(); renderView(); if(STATE.selected)openOrder(id); savedToast(id,'Picked up',r); }).catch(function(e){toast(e.message||String(e));});
+}
+/* ----------- Pickup OTP verification ----------- */
+function openOtpModal(id){
+  var o=byId(id); if(!o) return;
+  overlay('<div class="scrim" onclick="closeOverlay()"></div><div class="modal" style="width:440px">'+
+    '<div class="drawer-head"><div><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--blue);font-weight:700">'+ic('lock',14)+' PICKUP VERIFICATION</div>'+
+      '<div class="disp" style="font-size:19px;font-weight:600;color:var(--cream);margin-top:3px">'+esc(o.id)+' · '+esc(o.name)+'</div></div>'+
+      '<button class="iconbtn" onclick="closeOverlay()">'+ic('x',16)+'</button></div>'+
+    '<div class="drawer-body" style="padding:18px">'+
+      '<div style="font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:14px">Send a one-time code to the customer, then enter what they read back to confirm the right person is collecting.</div>'+
+      '<button class="btn btn-gold btn-sm btn-block" id="otpSendBtn" onclick="sendOtp(\''+o.id+'\')">'+ic('phone',14)+' Send pickup code</button>'+
+      '<div id="otpSentMsg" style="font-size:12.5px;color:var(--green);margin-top:10px;min-height:16px"></div>'+
+      '<input class="inp mono" id="otpInput" placeholder="6-digit code" maxlength="6" inputmode="numeric" style="text-align:center;letter-spacing:6px;font-size:20px;margin-top:6px" disabled>'+
+      '<button class="btn btn-gold btn-sm btn-block" id="otpVerifyBtn" style="margin-top:10px" onclick="verifyOtp(\''+o.id+'\')" disabled>'+ic('check',14)+' Verify & mark picked up</button>'+
+    '</div></div>');
+}
+function sendOtp(id){
+  var btn=document.getElementById('otpSendBtn'); if(btn){btn.disabled=true;btn.innerHTML='Sending…';}
+  gcall('generatePickupOtp',id).then(function(r){
+    var msg=document.getElementById('otpSentMsg');
+    if(r.channel==='manual'){ if(msg){msg.style.color='var(--gold)'; msg.innerHTML='No SMS/email configured — read this code to the customer: <b style="font-size:15px;letter-spacing:2px">'+esc(r.code)+'</b>';} }
+    else if(msg){ msg.style.color='var(--green)'; msg.innerHTML='✓ Code sent via '+esc(r.channel)+' to '+esc(r.sentTo)+' (valid '+r.ttl+' min).'; }
+    var inp=document.getElementById('otpInput'), vb=document.getElementById('otpVerifyBtn');
+    if(inp){inp.disabled=false; inp.focus();} if(vb) vb.disabled=false;
+    if(btn){btn.disabled=false; btn.innerHTML='Resend code';}
+  }).catch(function(e){ var msg=document.getElementById('otpSentMsg'); if(msg){msg.style.color='#e0654f';msg.innerHTML='✗ '+(e.message||e);} if(btn){btn.disabled=false;btn.innerHTML='Send pickup code';} });
+}
+function verifyOtp(id){
+  var code=(document.getElementById('otpInput')||{}).value||'';
+  var vb=document.getElementById('otpVerifyBtn'); if(vb){vb.disabled=true;vb.innerHTML='Verifying…';}
+  gcall('verifyPickupOtp',id,code,stampOf(id)).then(function(r){
+    if(r.stale){ closeOverlay(); staleNotice(id,r); return; }
+    applyConfirmed(id,r,{pickedUp:true,pickupStatus:'picked_up'}); closeOverlay(); renderNavBadges(); renderView(); savedToast(id,'Picked up',r);
+  }).catch(function(e){ var msg=document.getElementById('otpSentMsg'); if(msg){msg.style.color='#e0654f';msg.innerHTML='✗ '+(e.message||e);} if(vb){vb.disabled=false;vb.innerHTML=ic('check',14)+' Verify & mark picked up';} });
+}
+function setPickup(id,status){
+  gcall('updatePickupStatus',id,status,stampOf(id)).then(function(r){ if(r.stale){staleNotice(id,r);return;} applyConfirmed(id,r,{pickedUp:status==='picked_up',pickupStatus:status}); renderNavBadges(); renderView(); if(STATE.selected)openOrder(id); savedToast(id,'Updated',r); }).catch(function(e){toast(e.message||String(e));});
+}
+function doNotes(id){
+  var n=(document.getElementById('oNotes')||{}).value||'';
+  gcall('updateNotes',id,n).then(function(r){ applyConfirmed(id,r,{notes:n}); savedToast(id,'Notes saved',r); }).catch(function(e){toast('Failed: '+(e.message||e));});
+}
+
+/* ----------- Pay Now quick modal (from tables) ----------- */
+function payPrompt(id){
+  var o=byId(id); if(!o) return;
+  overlay('<div class="scrim" onclick="closeOverlay()"></div><div class="modal">'+
+    '<div class="drawer-head"><div><div class="mono" style="color:var(--gold);font-size:13px">Order '+esc(o.id)+'</div>'+
+      '<div class="disp" style="font-size:19px;font-weight:600;color:var(--cream);margin-top:3px">Collect '+money(o.total)+' — '+esc(o.name)+'</div></div>'+
+      '<button class="iconbtn" onclick="closeOverlay()">'+ic('x',16)+'</button></div>'+
+    '<div class="drawer-body"><div class="field"><label>Zelle confirmation # (optional)</label><input class="inp" id="payRef" autofocus placeholder="e.g. ZL123456"></div>'+
+      '<button class="btn btn-gold btn-block" style="margin-top:16px" onclick="confirmPayModal(\''+o.id+'\')">'+ic('check',15)+' Mark Paid (Zelle)</button>'+
+      '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;color:var(--faint);font-size:12px">'+ic('lock',13)+' Pickup unlocks automatically once paid.</div></div></div>');
+}
+function confirmPayModal(id){
+  var ref=(document.getElementById('payRef')||{}).value||'';
+  toast('Recording payment…');
+  gcall('recordPayment',id,ref,stampOf(id)).then(function(r){ if(r.stale){ closeOverlay(); staleNotice(id,r); return; } applyConfirmed(id,r,{paid:true,paymentStatus:'paid',zelleRef:ref}); closeOverlay(); renderNavBadges(); renderView(); savedToast(id,'Paid',r); }).catch(function(e){toast('Failed: '+(e.message||e));});
+}
+
+/* ---------------------------- new order -------------------------- */
+var NB={banganapalli:0,kesar:0,rasalu:0,himayat:0}, NTOTAL=0, NTOUCHED=false;
+function openNewOrder(){
+  NB={banganapalli:0,kesar:0,rasalu:0,himayat:0}; NTOTAL=0; NTOUCHED=false;
+  var locs=STATE.locations.length?STATE.locations:['Prosper/Cel','Irving/Copp','Frisco','Plano'];
+  var boxInputs=STATE.varieties.map(function(v){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dotb" style="background:'+v.color+'"></span><span style="flex:1">'+esc(v.name)+' <span class="mono" style="color:var(--faint);font-size:12px">'+money(v.price)+'/box</span></span>'+
+      '<input class="inp mono" type="number" min="0" value="0" style="width:80px" oninput="NB[\''+v.id+'\']=Math.max(0,+this.value||0);recalcNew()"></div>';
+  }).join('');
+  overlay('<div class="scrim" onclick="closeOverlay()"></div><div class="modal">'+
+    '<div class="drawer-head"><div class="disp" style="font-size:20px;font-weight:600;color:var(--cream)">New Order</div><button class="iconbtn" onclick="closeOverlay()">'+ic('x',16)+'</button></div>'+
+    '<div class="drawer-body">'+
+      '<div class="field"><label>Customer Name</label><input class="inp" id="nName" placeholder="Full name"></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><label>Phone</label><input class="inp" id="nPhone" placeholder="(214) 555-0000"></div>'+
+        '<div class="field"><label>Email</label><input class="inp" id="nEmail" placeholder="name@email.com"></div></div>'+
+      '<div class="field"><label>Pickup Location</label><select class="inp" id="nPickLoc">'+locs.map(function(l){return '<option value="'+esc(l)+'">'+esc(l)+'</option>';}).join('')+'</select></div>'+
+      '<div class="sec-title" style="margin-top:16px">'+ic('orders',14)+' Boxes</div>'+boxInputs+
+      '<div class="field"><label>Total $ <span style="text-transform:none;color:var(--faint)">(auto-estimated — edit to match)</span></label><input class="inp mono" id="nTotal" value="0" oninput="NTOUCHED=true;NTOTAL=+this.value||0"></div>'+
+      '<button class="btn btn-gold btn-block" style="margin-top:16px" onclick="submitOrder()">'+ic('check',15)+' Create Order</button>'+
+      '<div style="margin-top:10px;color:var(--faint);font-size:12px">Created as <b>Pending</b> payment — collect via the Pay Now button after.</div></div></div>');
+}
+function recalcNew(){
+  if(!NTOUCHED){ var est=STATE.varieties.reduce(function(s,v){return s+(NB[v.id]||0)*(v.price||0);},0); NTOTAL=est; var f=document.getElementById('nTotal'); if(f) f.value=est; }
+}
+function submitOrder(){
+  var name=(document.getElementById('nName').value||'').trim(); if(!name){toast('Enter a customer name');return;}
+  var payload={name:name,phone:document.getElementById('nPhone').value,email:document.getElementById('nEmail').value,
+    pickupLoc:document.getElementById('nPickLoc').value,boxes:NB,total:+document.getElementById('nTotal').value||0};
+  toast('Creating order…');
+  gcall('createOrder',payload).then(function(r){ closeOverlay(); refresh(false); toast('✓ Order '+(r&&r.id?r.id:'')+' created'+(r&&r.savedAt?' — saved to sheet '+fmtTime(r.savedAt):'')); }).catch(function(e){toast('Failed: '+(e.message||e));});
+}
+
+/* ============================== PICKUPS =========================== */
+function viewPickups(){
+  var locs=STATE.locations.length?STATE.locations:[''];
+  var o=visibleOrders();
+  var cards=locs.map(function(loc){
+    var lo=o.filter(function(x){return x.pickupLoc===loc && !x.cancelled;});
+    var awaiting=lo.filter(function(x){return x.paid&&!x.pickedUp;}).length;
+    var unpaid=lo.filter(function(x){return !x.paid;}).length;
+    var done=lo.filter(function(x){return x.pickedUp;}).length;
+    var open=lo.filter(function(x){return !x.pickedUp;});
+    var body=open.length?open.map(function(x){
+      return '<div style="padding:11px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">'+
+        '<div style="flex:1;min-width:0;cursor:pointer" onclick="openOrder(\''+x.id+'\')"><div style="font-weight:600;font-size:13.5px">'+esc(x.name)+'</div>'+
+        '<div class="mono" style="font-size:11.5px;color:var(--faint)">Order '+esc(x.id)+' · '+money(x.total)+'</div>'+
+        '<div style="display:flex;gap:6px;margin-top:5px">'+badge(PAY[x.paymentStatus])+badge(PICK[x.pickupStatus])+'</div></div>'+
+        '<div onclick="event.stopPropagation()">'+actionBtns(x)+'</div></div>';
+    }).join(''):'<div class="empty" style="padding:28px">All clear here.</div>';
+    return '<div class="card" style="padding:0;overflow:hidden"><div style="padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">'+
+      '<div style="font-weight:700;color:var(--cream)">'+esc(loc||'—')+'</div>'+
+      '<div style="text-align:right;font-size:11.5px;color:var(--dim)"><span style="color:var(--red)">'+unpaid+' unpaid</span> · <span style="color:var(--gold)">'+awaiting+' ready</span> · <span style="color:var(--green)">'+done+' done</span></div></div>'+
+      '<div style="max-height:420px;overflow:auto">'+body+'</div></div>';
+  }).join('');
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Pickups</div><div class="page-sub">Pay first, then hand over · grouped by location</div></div>'+locFilterChip()+'</div>'+
+    '<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<div style="font-weight:600;color:var(--cream);display:flex;align-items:center;gap:8px">'+ic('search',16)+'Find by Order ID</div>'+
+      '<input class="inp mono" id="pickupId" placeholder="6-digit order ID" maxlength="8" inputmode="numeric" style="max-width:200px;letter-spacing:3px" onkeydown="if(event.key===\'Enter\')pickupLookup()">'+
+      '<button class="btn btn-gold btn-sm" onclick="pickupLookup()">'+ic('check',14)+' Find order</button>'+
+      '<div style="font-size:12px;color:var(--faint)">Ask the customer for their order number to pull it up and hand over.</div>'+
+    '</div>'+
+    '<div class="grid3">'+cards+'</div></div>';
+}
+// Look up the order the customer quotes at pickup, fresh from the sheet, and open it.
+function pickupLookup(){
+  var el=document.getElementById('pickupId'); var v=((el&&el.value)||'').trim();
+  if(!v){ toast('Enter the customer\u2019s order ID'); return; }
+  toast('Looking up '+v+'\u2026');
+  gcall('getOrder',v).then(function(r){
+    if(!r||!r.order){ toast('No order found with ID '+v); return; }
+    STATE.orders=STATE.orders.map(function(o){return o.id===r.order.id?r.order:o;});
+    if(!byId(v)) STATE.orders.push(r.order);
+    openOrder(r.order.id);
+  }).catch(function(e){ toast('No order found with ID '+v+(/(not found)/i.test(e.message||'')?'':' ('+(e.message||e)+')')); });
+}
+
+/* ============================== PAYMENTS ========================== */
+function viewPayments(){
+  var o=visibleOrders();
+  var active=o.filter(function(x){return !x.cancelled;});
+  var out=active.filter(function(x){return !x.paid;});
+  var collected=active.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+  var due=out.reduce(function(s,x){return s+x.total;},0);
+  var gross=collected+due, pct=gross?Math.round(collected/gross*100):0;
+  var rows=out.map(function(x){
+    return '<tr class="click" onclick="openOrder(\''+x.id+'\')"><td class="mono" style="color:var(--gold)">'+esc(x.id)+'</td>'+
+      '<td>'+esc(x.name)+'<div style="font-size:11.5px;color:var(--faint)">'+esc(x.phone)+'</div></td>'+
+      '<td class="mono">'+money(x.total)+'</td><td>'+badge(PAY[x.paymentStatus])+'</td>'+
+      '<td style="color:var(--dim);font-size:12.5px">'+esc(x.pickupLoc)+'</td>'+
+      '<td onclick="event.stopPropagation()">'+actionBtns(x)+'</td></tr>';
+  }).join('');
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Payments — Zelle</div><div class="page-sub">Outstanding collections</div></div>'+locFilterChip()+'</div>'+
+    '<div class="grid3" style="margin-bottom:16px"><div class="kpi"><div class="lab">Collected</div><div class="val" style="color:var(--green)">'+money(collected)+'</div><div class="sub">'+pct+'% of booked</div><div class="progress"><div style="width:'+pct+'%;background:var(--green)"></div></div></div>'+
+      '<div class="kpi"><div class="lab">Outstanding</div><div class="val" style="color:var(--red)">'+money(due)+'</div><div class="sub">'+out.length+' unpaid orders</div></div>'+
+      '<div class="kpi"><div class="lab">Booked Revenue</div><div class="val">'+money(gross)+'</div><div class="sub">excl. cancelled</div></div></div>'+
+    '<div class="sec-title">'+ic('alert',15)+' Awaiting Collection</div>'+
+    (out.length?'<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Location</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">🎉 All active orders are paid.</div>')+'</div>';
+}
+
+/* ============================== LOCATIONS ========================= */
+function viewLocations(){
+  var locs=STATE.locations;
+  if(!locs.length) return '<div class="page"><div class="page-title">Locations</div><div class="empty">No locations found in your sheet yet.</div></div>';
+  var cards=locs.map(function(loc){
+    var lo=STATE.orders.filter(function(x){return x.pickupLoc===loc;});
+    var active=lo.filter(function(x){return !x.cancelled;});
+    var rev=active.reduce(function(s,x){return s+x.total;},0);
+    var collected=active.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+    var unpaid=active.filter(function(x){return !x.paid;}).length;
+    var ready=active.filter(function(x){return x.paid&&!x.pickedUp;}).length;
+    var done=active.filter(function(x){return x.pickedUp;}).length;
+    return '<div class="card"><div style="display:flex;align-items:center;gap:8px"><span style="width:34px;height:34px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;color:var(--gold)">'+ic('mappin',16)+'</span>'+
+      '<div style="font-weight:700;color:var(--cream)">'+esc(loc)+'</div></div>'+
+      '<div style="display:flex;gap:18px;margin:14px 0;font-size:13px;flex-wrap:wrap"><div><div style="color:var(--faint);font-size:11px">ORDERS</div><div class="mono" style="font-size:17px;color:var(--cream)">'+active.length+'</div></div>'+
+        '<div><div style="color:var(--faint);font-size:11px">REVENUE</div><div class="mono" style="font-size:17px;color:var(--gold)">'+money(rev)+'</div></div>'+
+        '<div><div style="color:var(--faint);font-size:11px">COLLECTED</div><div class="mono" style="font-size:17px;color:var(--green)">'+money(collected)+'</div></div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="badge" onclick="openLocOrders(\''+esc(loc).replace(/'/g,"\\'")+'\',\'unpaid\')" style="cursor:pointer;color:#e0654f;border-color:#e0654f55;background:#e0654f14"><span class="dotb" style="background:#e0654f"></span>'+unpaid+' unpaid</button>'+
+        '<button class="badge" onclick="openLocOrders(\''+esc(loc).replace(/'/g,"\\'")+'\',\'ready\')" style="cursor:pointer;color:#e8a92e;border-color:#e8a92e55;background:#e8a92e14"><span class="dotb" style="background:#e8a92e"></span>'+ready+' ready</button>'+
+        '<button class="badge" onclick="openLocOrders(\''+esc(loc).replace(/'/g,"\\'")+'\',\'picked_up\')" style="cursor:pointer;color:#7bbf6a;border-color:#7bbf6a55;background:#7bbf6a14"><span class="dotb" style="background:#7bbf6a"></span>'+done+' picked up</button>'+
+      '</div></div>';
+  }).join('');
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Locations</div><div class="page-sub">Performance by pickup location · tap a count to see those orders</div></div></div><div class="grid2">'+cards+'</div></div>';
+}
+function openLocOrders(loc, type){
+  var meta={unpaid:{t:'Unpaid',c:'#e0654f',f:function(o){return !o.paid&&!o.cancelled;}},
+            ready:{t:'Ready for Pickup',c:'#e8a92e',f:function(o){return o.paid&&!o.pickedUp&&!o.cancelled;}},
+            picked_up:{t:'Picked Up',c:'#7bbf6a',f:function(o){return o.pickedUp;}}}[type];
+  var list=STATE.orders.filter(function(o){return o.pickupLoc===loc && meta.f(o);});
+  var rows=list.length?list.map(function(o){
+    return '<tr class="click" onclick="openOrder(\''+o.id+'\')"><td class="mono" style="color:var(--gold)">'+esc(o.id)+'</td>'+
+      '<td>'+esc(o.name)+'<div style="font-size:11.5px;color:var(--faint)">'+esc(o.phone)+'</div></td>'+
+      '<td style="color:var(--dim);font-size:12.5px">'+esc(itemsLabel(o.items))+'</td>'+
+      '<td class="mono">'+money(o.total)+'</td>'+
+      '<td onclick="event.stopPropagation()">'+actionBtns(o)+'</td></tr>';
+  }).join(''):'';
+  overlay('<div class="scrim" onclick="closeOverlay()"></div><div class="modal" style="width:640px">'+
+    '<div class="drawer-head"><div><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:'+meta.c+';font-weight:700"><span class="dotb" style="background:'+meta.c+'"></span>'+meta.t.toUpperCase()+'</div>'+
+      '<div class="disp" style="font-size:20px;font-weight:600;color:var(--cream);margin-top:3px">'+esc(loc)+' · '+list.length+' order'+(list.length===1?'':'s')+'</div></div>'+
+      '<button class="iconbtn" onclick="closeOverlay()">'+ic('x',16)+'</button></div>'+
+    '<div class="drawer-body" style="padding:16px">'+
+      (list.length?'<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Action</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No '+meta.t.toLowerCase()+' orders at '+esc(loc)+'.</div>')+
+    '</div></div>');
+}
+
+/* ============================== REPORTS =========================== */
+var RF={from:'',to:''};
+function reportData(){
+  var o=visibleOrders().filter(function(x){return x.orderDate>=RF.from && x.orderDate<=RF.to;});
+  return o;
+}
+function viewReports(){
+  if(!RF.to){ RF.to=STATE.today; var d=new Date(STATE.today+'T12:00'); d.setDate(d.getDate()-9); RF.from=d.toISOString().slice(0,10); }
+  var all=reportData();
+  var o=all.filter(function(x){return !x.cancelled;});
+  var gross=o.reduce(function(s,x){return s+x.total;},0), collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+  var picked=o.length?Math.round(o.filter(function(x){return x.pickedUp;}).length/o.length*100):0;
+  var vm={}; o.forEach(function(x){x.items.forEach(function(it){vm[it.v]=(vm[it.v]||0)+it.q;});});
+  var vRows=STATE.varieties.map(function(v){return {n:v.name,c:v.color,q:vm[v.id]||0};}).filter(function(x){return x.q;}).sort(function(a,b){return b.q-a.q;})
+    .map(function(v){return '<tr><td><span class="dotb" style="background:'+v.c+';margin-right:8px"></span>'+esc(v.n)+'</td><td class="mono">'+v.q+'</td></tr>';}).join('');
+  var lm={}; o.forEach(function(x){var L=x.pickupLoc||'—'; lm[L]=lm[L]||{o:0,r:0,c:0}; lm[L].o++; lm[L].r+=x.total; if(x.paid)lm[L].c+=x.total;});
+  var lRows=Object.keys(lm).sort(function(a,b){return lm[b].r-lm[a].r;}).map(function(L){var d=lm[L];return '<tr><td>'+esc(L)+'</td><td class="mono">'+d.o+'</td><td class="mono">'+money(d.r)+'</td><td class="mono" style="color:var(--green)">'+money(d.c)+'</td></tr>';}).join('');
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Reports</div><div class="page-sub">Period analytics</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+locFilterChip()+'<input class="sel" type="date" value="'+RF.from+'" onchange="RF.from=this.value;renderView()"><span style="color:var(--faint)">→</span><input class="sel" type="date" value="'+RF.to+'" onchange="RF.to=this.value;renderView()"></div></div>'+
+    '<div class="grid3" style="margin-bottom:16px"><div class="kpi"><div class="lab">Period Revenue</div><div class="val">'+money(gross)+'</div><div class="sub">'+o.length+' orders</div></div>'+
+      '<div class="kpi"><div class="lab">Collected</div><div class="val" style="color:var(--green)">'+money(collected)+'</div><div class="sub">'+(gross?Math.round(collected/gross*100):0)+'% collection rate</div></div>'+
+      '<div class="kpi"><div class="lab">Pickup Completion</div><div class="val" style="color:var(--blue)">'+picked+'%</div><div class="sub">orders collected</div></div></div>'+
+    '<div class="grid2" style="margin-bottom:16px">'+
+      '<div class="card"><div class="sec-title">'+ic('wallet',15)+' Payment Breakdown</div><div class="chartbox sm"><canvas id="rpPay"></canvas></div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('truck',15)+' Pickup Breakdown</div><div class="chartbox sm"><canvas id="rpPick"></canvas></div></div>'+
+    '</div>'+
+    '<div class="grid2" style="margin-bottom:16px">'+
+      '<div class="card"><div class="sec-title">'+ic('orders',15)+' Sales by Variety (revenue)</div><div class="chartbox sm"><canvas id="rpVar"></canvas></div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('mappin',15)+' Revenue by Location</div><div class="chartbox sm"><canvas id="rpLoc"></canvas></div></div>'+
+    '</div>'+
+    '<div class="grid2"><div class="card"><div class="sec-title">'+ic('orders',15)+' Boxes by Variety</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Variety</th><th>Boxes</th></tr></thead><tbody>'+(vRows||'<tr><td colspan=2 style="color:var(--faint)">No data in range.</td></tr>')+'</tbody></table></div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('mappin',15)+' Location Performance</div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Location</th><th>Orders</th><th>Revenue</th><th>Collected</th></tr></thead><tbody>'+(lRows||'<tr><td colspan=4 style="color:var(--faint)">No data in range.</td></tr>')+'</tbody></table></div></div></div></div>';
+}
+function drawReportsCharts(){
+  Object.keys(CHARTS).forEach(function(k){ if(CHARTS[k]) CHARTS[k].destroy(); });
+  if(!window.Chart) return;
+  var all=reportData(), o=all.filter(function(x){return !x.cancelled;});
+  var tip={backgroundColor:'#271e14',borderColor:'#4a3a24',borderWidth:1,titleColor:'#f3e9d6',bodyColor:'#bca988'};
+  var pieOpts={maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:11}}},tooltip:tip}};
+  // payment breakdown (counts incl. cancelled)
+  var pay=[all.filter(function(x){return x.paid;}).length, all.filter(function(x){return !x.paid&&!x.cancelled;}).length, all.filter(function(x){return x.cancelled;}).length];
+  var c1=document.getElementById('rpPay');
+  if(c1) CHARTS.rpPay=new Chart(c1,{type:'doughnut',data:{labels:['Paid','Unpaid','Cancelled'],datasets:[{data:pay,backgroundColor:['#7bbf6a','#e0654f','#8a785c'],borderWidth:0}]},options:pieOpts});
+  // pickup breakdown (active orders)
+  var pick=[o.filter(function(x){return x.pickedUp;}).length, o.filter(function(x){return x.paid&&!x.pickedUp;}).length, o.filter(function(x){return !x.paid;}).length];
+  var c2=document.getElementById('rpPick');
+  if(c2) CHARTS.rpPick=new Chart(c2,{type:'doughnut',data:{labels:['Picked Up','Awaiting (paid)','Not paid yet'],datasets:[{data:pick,backgroundColor:['#7bbf6a','#e8a92e','#6aa9c9'],borderWidth:0}]},options:pieOpts});
+  // sales by variety (revenue) — pie
+  var vm={}; o.forEach(function(x){x.items.forEach(function(it){vm[it.v]=(vm[it.v]||0)+it.q*(vById(it.v).price||0);});});
+  var vs=STATE.varieties.filter(function(v){return (vm[v.id]||0)>0;});
+  var c3=document.getElementById('rpVar');
+  if(c3) CHARTS.rpVar=new Chart(c3,{type:'doughnut',data:{labels:vs.map(function(v){return v.name;}),datasets:[{data:vs.map(function(v){return vm[v.id];}),backgroundColor:vs.map(function(v){return v.color;}),borderWidth:0}]},options:Object.assign({},pieOpts,{plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:11}}},tooltip:Object.assign({},tip,{callbacks:{label:function(c){return c.label+': $'+c.raw;}}})}})});
+  // revenue by location — pie
+  var lm={}; o.forEach(function(x){var L=x.pickupLoc||'—'; lm[L]=(lm[L]||0)+x.total;});
+  var lk=Object.keys(lm).sort(function(a,b){return lm[b]-lm[a];});
+  var palette=['#e8a92e','#c8780a','#7bbf6a','#6aa9c9','#b58bd0','#d9962a'];
+  var c4=document.getElementById('rpLoc');
+  if(c4) CHARTS.rpLoc=new Chart(c4,{type:'doughnut',data:{labels:lk,datasets:[{data:lk.map(function(L){return lm[L];}),backgroundColor:lk.map(function(_,i){return palette[i%palette.length];}),borderWidth:0}]},options:Object.assign({},pieOpts,{plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:11}}},tooltip:Object.assign({},tip,{callbacks:{label:function(c){return c.label+': $'+c.raw;}}})}})});
+}
+
+/* ============================== SETTINGS ========================== */
+function viewSettings(){
+  var sec=[['Two-factor authentication','Set on your Google account'],['Access control','Email allowlist (server-side)'],['Session','Google sign-in'],['Transport','HTTPS / TLS'],['Audit log','Every action recorded to sheet']];
+  var nc=[['Browser caching','Disabled'],['Auto re-pull interval',STATE.interval+'s'],['Source of truth','Your Google Sheet (live)'],['Client storage','None']];
+  var priceRows=STATE.varieties.map(function(v){
+    return '<div class="row"><span class="k" style="display:flex;align-items:center;gap:8px"><span class="dotb" style="background:'+v.color+'"></span>'+esc(v.name)+'</span>'+
+      '<span style="display:flex;align-items:center;gap:5px;color:var(--dim)">$<input class="inp mono" id="price_'+v.id+'" value="'+v.price+'" style="width:84px;padding:7px 9px;text-align:right"></span></div>';
+  }).join('');
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Settings</div><div class="page-sub">Security, pricing, data source & workflow</div></div></div>'+
+    '<div class="grid2">'+
+      '<div class="card"><div class="sec-title">'+ic('wallet',15)+' Box Prices (configurable)</div>'+priceRows+
+        '<button class="btn btn-gold btn-sm" style="margin-top:14px" onclick="savePrices()">'+ic('check',14)+' Save Prices</button>'+
+        '<div style="font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6">Stored in the <b>Prices</b> tab of your sheet — drives the auto-estimated Total $ for new orders. You can also edit them directly in that tab. Existing orders keep their saved totals.</div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('shield',15)+' Security</div>'+sec.map(function(r){return '<div class="row"><span class="k">'+r[0]+'</span><span class="v" style="color:var(--green)">'+r[1]+'</span></div>';}).join('')+'</div>'+
+      '<div class="card"><div class="sec-title">'+ic('dot',15)+' Live / No-Cache</div>'+nc.map(function(r){return '<div class="row"><span class="k">'+r[0]+'</span><span class="v">'+r[1]+'</span></div>';}).join('')+'</div>'+
+      '<div class="card"><div class="sec-title">'+ic('truck',15)+' Workflow Rule</div><div style="font-size:13px;color:var(--dim);line-height:1.7"><b>Pay first, then pickup.</b> The <b>Pay Now</b> button shows while an order is unpaid. Once paid, it switches to <b>Mark as Picked Up</b>. The pickup action is blocked on the server too, so an unpaid order can never be marked collected.</div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('wallet',15)+' Zelle Payment Requests</div>'+
+        '<div class="row"><span class="k">Receiving handle</span><span class="v mono" style="color:'+(STATE.zelle&&STATE.zelle.handle?'var(--green)':'#e8a92e')+'">'+esc(STATE.zelle&&STATE.zelle.handle?STATE.zelle.handle:'not set')+'</span></div>'+
+        '<div class="row"><span class="k">Business name</span><span class="v">'+esc((STATE.zelle&&STATE.zelle.name)||'TRU Mangoes')+'</span></div>'+
+        '<div class="row"><span class="k">PayPal.Me</span><span class="v mono">'+esc(STATE.zelle&&STATE.zelle.paypal?STATE.zelle.paypal:'—')+'</span></div>'+
+        '<div class="row"><span class="k">Venmo</span><span class="v mono">'+esc(STATE.zelle&&STATE.zelle.venmo?STATE.zelle.venmo:'—')+'</span></div>'+
+        '<div style="font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6">Each unpaid order has a <b>Request Payment</b> block (open the order) that builds an order-specific Zelle message — your handle, the exact amount, and the Order ID as the memo — ready to send by WhatsApp, text, or email. Zelle has no payment links/API, so the customer pays from their own bank app. Optionally set a PayPal.Me or Venmo handle for one-tap, amount-prefilled alternatives. Configure <b>ZELLE_HANDLE</b>, <b>BUSINESS_NAME</b>, <b>PAYPAL_HANDLE</b>, <b>VENMO_HANDLE</b> in Code.gs CONFIG, then redeploy.</div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('lock',15)+' Pickup OTP Verification</div>'+
+        '<div class="row"><span class="k">Status</span><span class="v" style="color:'+(STATE.otp&&STATE.otp.required?'var(--green)':'var(--faint)')+'">'+(STATE.otp&&STATE.otp.required?'Required at pickup':'Off')+'</span></div>'+
+        '<div class="row"><span class="k">Channel</span><span class="v">'+esc((STATE.otp&&STATE.otp.channel)||'auto')+'</span></div>'+
+        '<div class="row"><span class="k">Code validity</span><span class="v">'+((STATE.otp&&STATE.otp.ttl)||10)+' min</span></div>'+
+        '<div style="font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6">When on, marking an order picked up requires a one-time code the customer reads back. SMS needs Twilio credentials (CONFIG.TWILIO); otherwise it falls back to email (free) or manual (staff reads the code). Set <b>REQUIRE_PICKUP_OTP</b>, <b>OTP_CHANNEL</b>, <b>OTP_TTL_MIN</b>, and <b>TWILIO</b> in Code.gs CONFIG, then redeploy.</div></div>'+
+      '<div class="card"><div class="sec-title">'+ic('user',15)+' Signed-in Account</div><div class="row"><span class="k">You</span><span class="v mono">'+esc(STATE.user)+'</span></div><div style="font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6">Edit the <b>ALLOWLIST</b> in Code.gs to change who can access, then redeploy.</div></div></div></div>';
+}
+function savePrices(){
+  var obj={}; STATE.varieties.forEach(function(v){ var el=document.getElementById('price_'+v.id); if(el) obj[v.id]=+el.value||0; });
+  toast('Saving prices…');
+  gcall('savePrices',obj).then(function(r){ if(r.varieties) STATE.varieties=r.varieties; renderView(); toast('Prices updated'); }).catch(function(e){toast('Failed: '+(e.message||e));});
+}
+
+window.addEventListener('load', window.__truLogin);
+// When the tab regains focus (e.g., laptop woke from sleep), immediately verify the session.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && STATE.user){
+    if(SESSION_DOWN){ runServer('ping',[]).then(function(){ recoverSession(); }).catch(function(){}); }
+    else { refresh(false); }
+  }
+});
+</script>
+
+</body></html>
