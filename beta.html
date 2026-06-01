@@ -326,7 +326,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
 <body>
 
 <!-- ANNOUNCEMENT BAR -->
-<!-- EDIT pickup dates below for the new batch --><div class="ann-bar" style="background:#A61E1E">🧪 <span>BETA / TEST PAGE</span> · Orders placed here are TEST orders (tagged in the sheet) · Not the live store</div>
+<div class="ann-bar" style="font-size:21px;padding:16px;line-height:1.35">🥭 <span style="font-size:23px">NEXT BATCH: FRIDAY, JUNE 5TH</span> · PRE-ORDER NOW <span style="font-size:13px;opacity:.85">· 🧪 BETA TEST PAGE</span></div>
 
 <!-- NAV -->
 <nav>
@@ -350,7 +350,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
     <div class="hero-text">
       <div class="hero-label">🥭 PRE-ORDERS NOW OPEN</div>
       <h1 class="hero-h1">Farm Fresh <em>Indian</em><br>Mangoes,<br>Dallas & Beyond</h1>
-      <p class="hero-sub">🥭 <strong>Pre-orders are now open!</strong> Our fresh batch is <strong>arriving this week</strong>. Handpicked from trusted Indian orchards and ready for local pickup across the Dallas area. <strong>Reserve your boxes below</strong> — boxes are held on a first-paid basis.</p>
+      <p class="hero-sub">🥭 <strong>Pre-orders are now open!</strong> Our fresh batch is <strong>arriving Friday, June 5th</strong>. Handpicked from trusted Indian orchards and ready for local pickup across the Dallas area. <strong>Reserve your boxes below</strong> — boxes are held on a first-paid basis.</p>
       <div class="hero-btns">
         <a href="#order" class="btn-primary">Reserve Your Boxes Now</a>
         <a href="#varieties" class="btn-outline">Explore Varieties</a>
@@ -633,7 +633,7 @@ footer{background:var(--brown);color:rgba(251,246,237,.65);padding:60px 5vw 30px
       <div class="form-header">
         <div class="sec-eyebrow" style="justify-content:center"><span>Reserve Now</span></div>
         <h2 class="sec-title" style="text-align:center">Pre-Order Your <em>TRU Mangoes</em></h2>
-        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px"><strong style="color:#1F4A2C;">🥭 Pre-orders are now open!</strong> Our fresh batch is <strong style="color:#1F4A2C;">arriving this week</strong>. Select your varieties and quantities below to reserve your boxes — then pay via Zelle to lock in your spot.</p>
+        <p style="text-align:center;color:var(--muted);font-size:15px;margin-top:12px"><strong style="color:#1F4A2C;">🥭 Pre-orders are now open!</strong> Our fresh batch is <strong style="color:#1F4A2C;">arriving Friday, June 5th</strong>. Select your varieties and quantities below to reserve your boxes — then pay via Zelle to lock in your spot.</p>
       </div>
 
       <!-- SOLD OUT / WAITLIST PANEL (replaces live order form) -->
@@ -1057,7 +1057,7 @@ var PREORDERS_LOCKED = true;
 // is reached. These values are just the initial state before that fetch
 // returns. Kesar stays sold out (not in this batch).
 const LIMIT_PER_BATCH=50;
-const SOLD_OUT={bangan:false,rasalu:false,himayat:false,kesar:true};
+const SOLD_OUT={bangan:false,rasalu:false,himayat:true,kesar:true};
 let q={bangan:0,kesar:0,rasalu:0,himayat:0},dc=0,pickupArea='';
 function chg(t,d){
   if(PREORDERS_LOCKED) return;
@@ -1416,6 +1416,11 @@ document.addEventListener('DOMContentLoaded', function(){
   if(TEST_KEY){ applyStoreOpen(); applySoldOutState(); showTestBanner(); }
   else { applyStoreClosed(); }   // public site starts locked until server confirms open
   refreshAvailability();          // then sync live status from the server
+  // Keep availability fresh so a variety disables on its own the moment it hits
+  // its cap, without the customer needing to reload. (The server also hard-stops
+  // any over-cap order, so this is the UX layer on top of that guarantee.)
+  setInterval(refreshAvailability, 45000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshAvailability(); });
   // Safety net: ensure State stays as TX even if browser autofill or extensions interfere
   var stateEl = document.getElementById('state');
   if (stateEl) { stateEl.value = 'TX'; }
