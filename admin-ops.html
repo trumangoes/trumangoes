@@ -745,7 +745,10 @@ function confirmPayModal(id){
 var NB={banganapalli:0,kesar:0,rasalu:0,himayat:0}, NTOTAL=0, NTOUCHED=false;
 function openNewOrder(){
   NB={banganapalli:0,kesar:0,rasalu:0,himayat:0}; NTOTAL=0; NTOUCHED=false;
-  var locs=STATE.locations.length?STATE.locations:['Prosper/Cel','Irving/Copp','Frisco','Plano'];
+  // Always offer the full service areas (must match Code.gs mapServiceArea_), plus
+  // any other locations that already exist in current orders.
+  var locs = ['Frisco','Plano','Irving/Coppell','Prosper/Celina'].slice();
+  (STATE.locations||[]).forEach(function(l){ if(l && locs.indexOf(l)<0) locs.push(l); });
   var boxInputs=STATE.varieties.map(function(v){
     return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dotb" style="background:'+v.color+'"></span><span style="flex:1">'+esc(v.name)+' <span class="mono" style="color:var(--faint);font-size:12px">'+money(v.price)+'/box</span></span>'+
       '<input class="inp mono" type="number" min="0" value="0" style="width:80px" oninput="NB[\''+v.id+'\']=Math.max(0,+this.value||0);recalcNew()"></div>';
