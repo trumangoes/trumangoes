@@ -256,6 +256,7 @@
     <div class="topbar-title">🥭 TRU Mangoes Admin</div>
     <div class="topbar-actions">
       <span id="role-badge" class="badge-role badge-admin">ADMIN</span>
+      <a onclick="openNewOrderModal()">➕ New Order</a>
       <a onclick="refreshAll()">🔄 Refresh</a>
       <a onclick="logout()">Sign Out</a>
     </div>
@@ -491,6 +492,31 @@
     </div>
     <button onclick="cancelEntireFromAdjust()" style="margin-top:10px;width:100%;background:#c0392b;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer">✕ Cancel ENTIRE order</button>
     <button class="modal-cancel" onclick="closeAdjustModal()">Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="neworder-modal">
+  <div class="modal-card" style="max-width:480px;text-align:left">
+    <h3 style="text-align:center">➕ New Order</h3>
+    <label style="font-size:12px;color:#6b5b40;font-weight:700">CUSTOMER NAME</label>
+    <input type="text" id="no-name" class="search-box" placeholder="Full name" style="margin:4px 0 10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label style="font-size:12px;color:#6b5b40;font-weight:700">PHONE</label>
+        <input type="text" id="no-phone" class="search-box" placeholder="2145550000" style="margin:4px 0 10px"></div>
+      <div><label style="font-size:12px;color:#6b5b40;font-weight:700">EMAIL</label>
+        <input type="text" id="no-email" class="search-box" placeholder="name@email.com" style="margin:4px 0 10px"></div>
+    </div>
+    <label style="font-size:12px;color:#6b5b40;font-weight:700">PICKUP LOCATION</label>
+    <select id="no-loc" class="search-box" style="margin:4px 0 10px"></select>
+    <div style="font-size:12px;color:#6b5b40;font-weight:700;margin-bottom:6px">BOXES</div>
+    <div id="no-boxes"></div>
+    <label style="font-size:12px;color:#6b5b40;font-weight:700">TOTAL $ (auto-estimated — edit to match)</label>
+    <input type="number" id="no-total" class="search-box" value="0" style="margin:4px 0 10px" oninput="window._noTouched=true">
+    <div class="modal-pay-btns" style="margin-top:8px">
+      <button onclick="submitNewOrder()">✓ Create Order</button>
+    </div>
+    <div style="font-size:12px;color:#777;margin-top:8px">Created as <strong>Pending</strong> payment — collect via Pay Now after.</div>
+    <button class="modal-cancel" onclick="closeNewOrderModal()">Close</button>
   </div>
 </div>
 
@@ -1934,6 +1960,57 @@ function adjRecalc(){
     'New total: $'+tot+' ('+boxes+' box'+(boxes===1?'':'es')+')'+(boxes===0?' — whole order will be cancelled':'');
 }
 function closeAdjustModal(){ document.getElementById('adjust-modal').style.display='none'; _adjOrderId=null; }
+
+// ============ NEW ORDER (staff-created) ============
+var NO_VARS = [
+  {k:'bangan',  n:'Banganapalli', p:47},
+  {k:'kesar',   n:'Kesar',        p:55},
+  {k:'rasalu',  n:'Rasalu',       p:52},
+  {k:'himayat', n:'Himayat',      p:55}
+];
+function openNewOrderModal(){
+  window._noTouched = false;
+  document.getElementById('no-name').value = '';
+  document.getElementById('no-phone').value = '';
+  document.getElementById('no-email').value = '';
+  document.getElementById('no-total').value = '0';
+  document.getElementById('no-loc').innerHTML =
+    KNOWN_LOCATIONS.map(function(l){ return '<option value="'+escapeHtml(l)+'">'+escapeHtml(l)+'</option>'; }).join('');
+  document.getElementById('no-boxes').innerHTML = NO_VARS.map(function(v){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+      '<span style="flex:1">🥭 '+v.n+' <span style="color:#999;font-size:12px">$'+v.p+'/box</span></span>'+
+      '<input type="number" min="0" value="0" id="no-'+v.k+'" class="search-box" style="width:90px;margin:0" oninput="recalcNoTotal()"></div>';
+  }).join('');
+  document.getElementById('neworder-modal').style.display = 'flex';
+}
+function recalcNoTotal(){
+  if (window._noTouched) return;
+  var t = 0;
+  NO_VARS.forEach(function(v){ t += (Number((document.getElementById('no-'+v.k)||{}).value)||0) * v.p; });
+  document.getElementById('no-total').value = t;
+}
+function closeNewOrderModal(){ document.getElementById('neworder-modal').style.display = 'none'; }
+async function submitNewOrder(){
+  var name = (document.getElementById('no-name').value||'').trim();
+  if (!name) { toast('Enter a customer name', true); return; }
+  var params = {
+    name: name,
+    phone: (document.getElementById('no-phone').value||'').trim(),
+    email: (document.getElementById('no-email').value||'').trim(),
+    location: document.getElementById('no-loc').value||'',
+    bangan: Number((document.getElementById('no-bangan')||{}).value)||0,
+    kesar:  Number((document.getElementById('no-kesar')||{}).value)||0,
+    rasalu: Number((document.getElementById('no-rasalu')||{}).value)||0,
+    himayat:Number((document.getElementById('no-himayat')||{}).value)||0,
+    total:  Number(document.getElementById('no-total').value)||0
+  };
+  toast('Creating order…');
+  try {
+    var r = await api('createOrderAdmin', params);
+    if (r && r.status === 'ok') { closeNewOrderModal(); toast('✓ Order #' + r.orderId + ' created'); await refreshAll(); }
+    else { toast('❌ ' + ((r && r.message) || 'Create failed — try again'), true); }
+  } catch (e) { toast('❌ ' + e, true); }
+}
 function _adjCollect(){
   var q={bangan:0,rasalu:0,himayat:0,kesar:0};
   document.querySelectorAll('#adjust-rows input[type=number]').forEach(function(inp){
