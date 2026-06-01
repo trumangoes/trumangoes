@@ -532,6 +532,7 @@ let canOverride = false;
 let cachedData = {pending:[], paid:[], orders:[]};
 
 // ============ LOGIN ============
+let _silentRetries = 0;
 async function login(silent) {
   const user = document.getElementById('user-input').value.trim();
   const pw = document.getElementById('pw-input').value.trim();
@@ -539,18 +540,25 @@ async function login(silent) {
     if (!silent) document.getElementById('login-err').textContent = 'Enter both username and password';
     return;
   }
-  if (!silent) document.getElementById('login-err').textContent = 'Verifying…';
+  document.getElementById('login-err').textContent = silent ? 'Reconnecting…' : 'Verifying…';
 
-  // Apps Script keeps NO session — every request re-authenticates. A single
-  // transient failure (cold start returning HTML, a redirect, a network blip)
-  // used to drop you straight back to the login screen. We now retry a few
-  // times, and ONLY a genuine wrong-password clears your saved login.
+  // Apps Script keeps NO session — every request re-authenticates. A cold start
+  // can be slow or return a non-JSON page, which used to look like "logged out."
+  // We parse text-first (so a non-JSON cold start is treated as retryable, not a
+  // failure), time out a stuck request, retry a few times, and ONLY a genuine
+  // wrong-password clears your saved login.
   let data = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 12000) : null;
       const res = await fetch(API_URL + '?action=verify&user=' +
-        encodeURIComponent(user) + '&pw=' + encodeURIComponent(pw));
-      data = await res.json();
+        encodeURIComponent(user) + '&pw=' + encodeURIComponent(pw),
+        { redirect: 'follow', cache: 'no-store', signal: ctrl ? ctrl.signal : undefined });
+      if (timer) clearTimeout(timer);
+      const txt = (await res.text()).trim();
+      if (txt.charAt(0) !== '{' && txt.charAt(0) !== '[') throw new Error('cold start / non-JSON');
+      data = JSON.parse(txt);
       if (data) break;
     } catch (err) {
       await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
@@ -558,12 +566,14 @@ async function login(silent) {
   }
 
   if (data && data.status === 'ok') {
+    _silentRetries = 0;
     userRole = data.role;
     userName = data.username || user;
     userPw = pw;
     canOverride = !!data.canOverride;
     localStorage.setItem('tru_admin_user', user);
     localStorage.setItem('tru_admin_pw', pw);
+    document.getElementById('login-err').textContent = '';
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     const badge = document.getElementById('role-badge');
@@ -582,14 +592,23 @@ async function login(silent) {
     refreshAll();
   } else if (data && data.code === 'unauthorized') {
     // Real bad password — clear saved creds and show the login screen.
+    _silentRetries = 0;
     localStorage.removeItem('tru_admin_pw');
     localStorage.removeItem('tru_admin_user');
     document.getElementById('login-err').textContent = '❌ ' + (data.message || 'Wrong username or password');
-  } else if (!silent) {
-    // Transient/connection issue on a manual sign-in — let them retry, don't wipe anything.
+  } else if (silent) {
+    // Couldn't reach the server during silent auto-login — DON'T strand on the
+    // login screen. Keep retrying quietly in the background; it self-heals once
+    // the backend warms up. The form stays pre-filled so a tap also works.
+    if (_silentRetries < 30) {
+      _silentRetries++;
+      setTimeout(function(){ login(true); }, 5000);
+    } else {
+      document.getElementById('login-err').textContent = '❌ Can’t reach the server — tap Sign In to retry.';
+    }
+  } else {
     document.getElementById('login-err').textContent = '❌ Connection issue — tap Sign In to retry.';
   }
-  // silent auto-login + transient failure: stay put and do nothing (no bounce to login).
 }
 
 document.getElementById('pw-input').addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
