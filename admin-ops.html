@@ -147,12 +147,14 @@ window.VIEWER_EMAIL = "";
     if(params){ for(var k in params){ if(params[k]!=null) url+='&'+k+'='+encodeURIComponent(params[k]); } }
     var attempt=0;
     function tryOnce(){
-      return fetch(url,{redirect:'follow',cache:'no-store'})
-        .then(function(res){ return res.text(); })
+      var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(e){} }, 12000) : null; // 12s hard cap so it can't hang
+      return fetch(url,{redirect:'follow',cache:'no-store',signal:ctrl?ctrl.signal:undefined})
+        .then(function(res){ if(timer) clearTimeout(timer); return res.text(); })
         .then(function(t){ t=(t||'').trim();
-          if(t.charAt(0)!=='{' && t.charAt(0)!=='[') throw new Error('Connection issue (cold start) — retrying');
+          if(t.charAt(0)!=='{' && t.charAt(0)!=='[') throw new Error('Connection issue (server returned a non-JSON page)');
           return JSON.parse(t); })
-        .catch(function(e){ attempt++; if(attempt<3) return new Promise(function(r){setTimeout(r,700*attempt);}).then(tryOnce); throw e; });
+        .catch(function(e){ if(timer) clearTimeout(timer); attempt++; if(attempt<3) return new Promise(function(r){setTimeout(r,700*attempt);}).then(tryOnce); throw e; });
     }
     return tryOnce();
   }
@@ -226,7 +228,7 @@ window.VIEWER_EMAIL = "";
   // ---- Simple login gate (creates its own overlay; calls boot() on success) ----
   window.__truLogin=function(){
     var saved=creds();
-    function show(msg){
+    function show(msg, autoTry){
       document.getElementById('boot').style.display='none';
       var el=document.getElementById('app');
       el.style.display='block';
@@ -236,22 +238,25 @@ window.VIEWER_EMAIL = "";
         '<div><div class="disp" style="font-size:18px;color:var(--cream)">TRU Mangoes</div>'+
         '<div style="font-size:11px;letter-spacing:.12em;color:var(--faint);text-transform:uppercase">Ops Command Center</div></div></div>'+
         '<div class="field"><label>Username</label><input class="inp" id="lgU" autocomplete="username" value="'+(saved.u||'')+'"></div>'+
-        '<div class="field"><label>Password</label><input class="inp" id="lgP" type="password" autocomplete="current-password"></div>'+
-        '<div id="lgErr" style="color:#e0654f;font-size:12.5px;margin-top:10px;min-height:16px">'+(msg||'')+'</div>'+
+        '<div class="field"><label>Password</label><input class="inp" id="lgP" type="password" autocomplete="current-password" value="'+(saved.p||'')+'"></div>'+
+        '<div id="lgErr" style="color:var(--faint);font-size:12.5px;margin-top:10px;min-height:16px">'+(msg||'')+'</div>'+
         '<button class="btn btn-gold btn-block" style="margin-top:8px" id="lgBtn">Sign In</button></div></div>';
       var go=function(){
         var u=(document.getElementById('lgU').value||'').trim(), p=(document.getElementById('lgP').value||'').trim();
         if(!u||!p){ document.getElementById('lgErr').textContent='Enter username and password'; return; }
+        document.getElementById('lgErr').style.color='var(--faint)';
         document.getElementById('lgErr').textContent='Verifying…';
         localStorage.setItem('tru_admin_user',u); localStorage.setItem('tru_admin_pw',p);
         SRV.ping().then(function(){ document.getElementById('app').innerHTML=''; document.getElementById('boot').style.display='flex'; boot(); })
-          .catch(function(){ localStorage.removeItem('tru_admin_pw'); show('❌ Wrong username or password (or connection issue) — try again'); });
+          .catch(function(e){ var le=document.getElementById('lgErr'); if(le){ le.style.color='#e0654f'; le.textContent='❌ '+((e&&e.message)||'Could not connect — check the connection and try again'); } });
       };
       document.getElementById('lgBtn').onclick=go;
       document.getElementById('lgP').addEventListener('keypress',function(e){ if(e.key==='Enter') go(); });
+      if(autoTry){ go(); }  // creds already saved → try automatically, but the form is on screen so it never just hangs
     }
-    if(saved.u && saved.p){ SRV.ping().then(function(){ boot(); }).catch(function(){ show(''); }); }
-    else { show(''); }
+    // ALWAYS render the login form first (never a blank spinner). If creds are
+    // saved, auto-attempt sign-in in the background with visible feedback.
+    show('', !!(saved.u && saved.p));
   };
 })();
 </script>
@@ -976,7 +981,14 @@ function savePrices(){
   gcall('savePrices',obj).then(function(r){ if(r.varieties) STATE.varieties=r.varieties; renderView(); toast('Prices updated'); }).catch(function(e){toast('Failed: '+(e.message||e));});
 }
 
-window.addEventListener('load', window.__truLogin);
+window.addEventListener('load', function(){
+  try {
+    if (typeof window.__truLogin === 'function') { window.__truLogin(); return; }
+  } catch (e) {}
+  // Fallback: if startup didn't wire up, show a visible message instead of spinning.
+  var b = document.getElementById('boot');
+  if (b) b.innerHTML = '<div class="brand-mark">🥭</div><div style="color:#e0654f;max-width:360px;text-align:center">Could not start the console. Please hard-refresh the page (Cmd/Ctrl+Shift+R). If it persists, reopen the link.</div>';
+});
 // When the tab regains focus (e.g., laptop woke from sleep), immediately verify the session.
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState==='visible' && STATE.user){
