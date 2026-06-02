@@ -324,8 +324,9 @@ function byId(id){ for(var i=0;i<STATE.orders.length;i++) if(STATE.orders[i].id=
 function dateKey(s){
   if(!s) return '';
   s=String(s).trim();
-  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
-  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
+  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];                                  // ISO / YYYY-MM-DD
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);  // M/D/YYYY
+  m=s.match(/^(\d{1,2})\/(\d{1,2})(?!\/)/); if(m){ var y=new Date().getFullYear(); return y+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2); } // M/D with no year (e.g. "6/1 6:25 PM") -> current year
   var d=new Date(s); if(!isNaN(d.getTime())) return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   return '';
 }
@@ -434,7 +435,7 @@ function renderShell(){
         '<button class="nav-item" onclick="signOut()" style="color:var(--dim)">'+ic('logout',17)+' Sign out</button>'+
       '</div></aside><div class="main">'+
       '<div class="topbar"><div class="chip" id="liveChip" style="border-color:var(--green);color:var(--green)"><span class="live-dot"></span> LIVE</div>'+
-        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v4 · diag</div>'+
+        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v5 · reports fix</div>'+
         '<div id="syncTxt" style="font-size:12px;color:var(--faint)"></div>'+
         '<button class="iconbtn" onclick="refresh(true)" title="Force re-pull">'+ic('refresh',15)+'</button><div style="flex:1"></div>'+
         '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)">'+locOpts+'</select></div>'+
