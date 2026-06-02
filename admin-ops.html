@@ -320,6 +320,15 @@ function vById(id){ for(var i=0;i<STATE.varieties.length;i++) if(STATE.varieties
 function locName(x){ return x||'—'; }
 function itemsLabel(items){ return (items||[]).map(function(it){return it.q+'× '+(it.name||vById(it.v).name);}).join(', '); }
 function byId(id){ for(var i=0;i<STATE.orders.length;i++) if(STATE.orders[i].id===id) return STATE.orders[i]; return null; }
+// Normalize any order-date format (ISO, "YYYY-MM-DD HH:MM", "M/D/YYYY", Date) to YYYY-MM-DD for range comparisons.
+function dateKey(s){
+  if(!s) return '';
+  s=String(s).trim();
+  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
+  var d=new Date(s); if(!isNaN(d.getTime())) return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  return '';
+}
 
 var PAY={paid:{label:'Paid',color:'#7bbf6a'},unpaid:{label:'Unpaid',color:'#e0654f'},cancelled:{label:'Cancelled',color:'#8a785c'}};
 var PICK={picked_up:{label:'Picked Up',color:'#7bbf6a'},awaiting:{label:'Awaiting',color:'#6aa9c9'},not_picked:{label:'Not Picked',color:'#e8a92e'},pending:{label:'Pending',color:'#6aa9c9'}};
@@ -394,7 +403,10 @@ function refresh(force){
     STATE.orders=r.orders; STATE.today=r.today; STATE.locations=r.locations||STATE.locations;
     if(r.varieties) STATE.varieties=r.varieties;
     STATE.lastSync=new Date(); STATE.countdown=STATE.interval;
-    renderNavBadges(); renderView(); updateSync();
+    renderNavBadges();
+    if(STATE.view==='orders' && document.getElementById('ordTbl')){ renderOrdersTable(); }
+    else { renderView(); }
+    updateSync();
     if(STATE.selected && byId(STATE.selected)) openOrder(STATE.selected);
     if(force) toast('Live data re-pulled (no cache)');
   }).catch(function(){});
@@ -501,7 +513,7 @@ function drawDashboardCharts(){
   Object.keys(CHARTS).forEach(function(k){ if(CHARTS[k]) CHARTS[k].destroy(); });
   var o=visibleOrders().filter(function(x){return !x.cancelled;});
   var tip={backgroundColor:'#271e14',borderColor:'#4a3a24',borderWidth:1,titleColor:'#f3e9d6',bodyColor:'#bca988'};
-  var byd={}; o.forEach(function(x){ if(!x.orderDate)return; byd[x.orderDate]=(byd[x.orderDate]||0)+x.total; });
+  var byd={}; o.forEach(function(x){ var k=dateKey(x.orderDate); if(!k)return; byd[k]=(byd[k]||0)+x.total; });
   var dates=Object.keys(byd).sort();
   var c1=document.getElementById('chRev');
   if(c1){var g=c1.getContext('2d').createLinearGradient(0,0,0,220);g.addColorStop(0,'rgba(232,169,46,.5)');g.addColorStop(1,'rgba(232,169,46,0)');
@@ -525,7 +537,7 @@ var OF={q:'',pay:'all',pick:'all'};
 function viewOrders(){
   return '<div class="page"><div class="page-head"><div><div class="page-title">Orders</div><div class="page-sub" id="ordCount"></div></div>'+
     '<button class="btn btn-gold btn-sm" onclick="openNewOrder()">'+ic('plus',15)+' New Order</button></div>'+
-    '<div class="toolbar"><div class="search">'+ic('search',15)+'<input id="ordQ" placeholder="Search order, name, phone…" value="'+esc(OF.q)+'" oninput="OF.q=this.value;renderOrdersTable()"></div>'+
+    '<div class="toolbar"><div class="search">'+ic('search',15)+'<input id="ordQ" type="search" autocomplete="off" name="ops-order-search" data-1p-ignore data-lpignore="true" data-form-type="other" placeholder="Search name, phone, email, order #…" value="'+esc(OF.q)+'" oninput="OF.q=this.value;renderOrdersTable()"></div>'+
       '<select class="sel" onchange="setLocFilter(this.value)"><option value="all"'+(STATE.locFilter==='all'?' selected':'')+'>All locations</option>'+STATE.locations.map(function(l){return '<option value="'+esc(l)+'"'+(STATE.locFilter===l?' selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select>'+
       '<select class="sel" onchange="OF.pay=this.value;renderOrdersTable()"><option value="all">All payments</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option><option value="cancelled">Cancelled</option></select>'+
       '<select class="sel" onchange="OF.pick=this.value;renderOrdersTable()"><option value="all">All pickup</option><option value="not_picked">Not Picked</option><option value="awaiting">Awaiting</option><option value="picked_up">Picked Up</option></select>'+
@@ -535,7 +547,12 @@ function filteredOrders(){
   return visibleOrders().filter(function(o){
     if(OF.pay!=='all'&&o.paymentStatus!==OF.pay) return false;
     if(OF.pick!=='all'&&o.pickupStatus!==OF.pick) return false;
-    if(OF.q){var s=OF.q.toLowerCase(); if(!(o.id.toLowerCase().indexOf(s)>=0||o.name.toLowerCase().indexOf(s)>=0||(o.phone||'').indexOf(s)>=0)) return false;}
+    if(OF.q){
+      var s=OF.q.toLowerCase().trim();
+      var hay=[o.id,o.name,o.phone,o.email,o.pickupLoc,itemsLabel(o.items)].join(' ').toLowerCase();
+      var digits=s.replace(/\D/g,''), phoneDigits=(o.phone||'').replace(/\D/g,'');
+      if(!(hay.indexOf(s)>=0 || (digits && phoneDigits.indexOf(digits)>=0))) return false;
+    }
     return true;
   });
 }
@@ -892,8 +909,11 @@ function openLocOrders(loc, type){
 /* ============================== REPORTS =========================== */
 var RF={from:'',to:''};
 function reportData(){
-  var o=visibleOrders().filter(function(x){return x.orderDate>=RF.from && x.orderDate<=RF.to;});
-  return o;
+  return visibleOrders().filter(function(x){
+    var k=dateKey(x.orderDate);
+    if(!k) return true;                 // undated orders still count (don't silently vanish)
+    return k>=RF.from && k<=RF.to;
+  });
 }
 function viewReports(){
   if(!RF.to){ RF.to=STATE.today; var d=new Date(STATE.today+'T12:00'); d.setDate(d.getDate()-9); RF.from=d.toISOString().slice(0,10); }
