@@ -434,7 +434,7 @@ function renderShell(){
         '<button class="nav-item" onclick="signOut()" style="color:var(--dim)">'+ic('logout',17)+' Sign out</button>'+
       '</div></aside><div class="main">'+
       '<div class="topbar"><div class="chip" id="liveChip" style="border-color:var(--green);color:var(--green)"><span class="live-dot"></span> LIVE</div>'+
-        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v3 · search fix</div>'+
+        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v4 · diag</div>'+
         '<div id="syncTxt" style="font-size:12px;color:var(--faint)"></div>'+
         '<button class="iconbtn" onclick="refresh(true)" title="Force re-pull">'+ic('refresh',15)+'</button><div style="flex:1"></div>'+
         '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)">'+locOpts+'</select></div>'+
@@ -917,8 +917,9 @@ function reportData(){
   });
 }
 function viewReports(){
-  if(!RF.to){ RF.to=STATE.today; var d=new Date(STATE.today+'T12:00'); d.setDate(d.getDate()-9); RF.from=d.toISOString().slice(0,10); }
+  if(!RF.to){ var _t=new Date(STATE.today+'T12:00'); var _hi=new Date(_t); _hi.setDate(_hi.getDate()+2); RF.to=_hi.toISOString().slice(0,10); var _lo=new Date(_t); _lo.setDate(_lo.getDate()-30); RF.from=_lo.toISOString().slice(0,10); }
   var all=reportData();
+  var _dbg='DIAG · orders loaded: '+visibleOrders().length+'  ·  range '+RF.from+' → '+RF.to+'  ·  matched in range: '+all.length+'  ·  date samples: '+visibleOrders().slice(0,4).map(function(x){return '["'+(x.orderDate||'(blank)')+'" → '+(dateKey(x.orderDate)||'(none)')+']';}).join('  ');
   var o=all.filter(function(x){return !x.cancelled;});
   var gross=o.reduce(function(s,x){return s+x.total;},0), collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
   var picked=o.length?Math.round(o.filter(function(x){return x.pickedUp;}).length/o.length*100):0;
@@ -929,6 +930,7 @@ function viewReports(){
   var lRows=Object.keys(lm).sort(function(a,b){return lm[b].r-lm[a].r;}).map(function(L){var d=lm[L];return '<tr><td>'+esc(L)+'</td><td class="mono">'+d.o+'</td><td class="mono">'+money(d.r)+'</td><td class="mono" style="color:var(--green)">'+money(d.c)+'</td></tr>';}).join('');
   return '<div class="page"><div class="page-head"><div><div class="page-title">Reports</div><div class="page-sub">Period analytics</div></div>'+
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+locFilterChip()+'<input class="sel" type="date" value="'+RF.from+'" onchange="RF.from=this.value;renderView()"><span style="color:var(--faint)">→</span><input class="sel" type="date" value="'+RF.to+'" onchange="RF.to=this.value;renderView()"></div></div>'+
+    '<div style="font:11px/1.5 monospace;color:#e8c79a;background:#2a1f12;border:1px solid #4a3a24;padding:7px 11px;border-radius:8px;margin-bottom:14px;word-break:break-all">'+esc(_dbg)+'</div>'+
     '<div class="grid3" style="margin-bottom:16px"><div class="kpi"><div class="lab">Period Revenue</div><div class="val">'+money(gross)+'</div><div class="sub">'+o.length+' orders</div></div>'+
       '<div class="kpi"><div class="lab">Collected</div><div class="val" style="color:var(--green)">'+money(collected)+'</div><div class="sub">'+(gross?Math.round(collected/gross*100):0)+'% collection rate</div></div>'+
       '<div class="kpi"><div class="lab">Pickup Completion</div><div class="val" style="color:var(--blue)">'+picked+'%</div><div class="sub">orders collected</div></div></div>'+
