@@ -406,6 +406,7 @@ function refresh(force){
     STATE.lastSync=new Date(); STATE.countdown=STATE.interval;
     renderNavBadges();
     if(STATE.view==='orders' && document.getElementById('ordTbl')){ renderOrdersTable(); }
+    else if(STATE.view==='reports' && !force){ /* skip auto re-render so date pickers / filters aren't interrupted; data stays in STATE and refreshes on filter change or manual refresh */ }
     else { renderView(); }
     updateSync();
     if(STATE.selected && byId(STATE.selected)) openOrder(STATE.selected);
@@ -435,7 +436,7 @@ function renderShell(){
         '<button class="nav-item" onclick="signOut()" style="color:var(--dim)">'+ic('logout',17)+' Sign out</button>'+
       '</div></aside><div class="main">'+
       '<div class="topbar"><div class="chip" id="liveChip" style="border-color:var(--green);color:var(--green)"><span class="live-dot"></span> LIVE</div>'+
-        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v5 · reports fix</div>'+
+        '<div class="chip" style="border-color:var(--gold);color:var(--gold);font-size:11px;letter-spacing:.04em">BUILD v6 · reports</div>'+
         '<div id="syncTxt" style="font-size:12px;color:var(--faint)"></div>'+
         '<button class="iconbtn" onclick="refresh(true)" title="Force re-pull">'+ic('refresh',15)+'</button><div style="flex:1"></div>'+
         '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)">'+locOpts+'</select></div>'+
@@ -909,7 +910,29 @@ function openLocOrders(loc, type){
 }
 
 /* ============================== REPORTS =========================== */
-var RF={from:'',to:''};
+var RF={from:'',to:'',variety:'all'};
+function _isoDay(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function setRangePreset(kind){
+  var t=new Date((STATE.today||_isoDay(new Date()))+'T12:00');
+  if(kind==='today'){ RF.from=STATE.today; RF.to=STATE.today; }
+  else if(kind==='7'){ var d=new Date(t); d.setDate(d.getDate()-6); RF.from=_isoDay(d); RF.to=STATE.today; }
+  else if(kind==='30'){ var d2=new Date(t); d2.setDate(d2.getDate()-29); RF.from=_isoDay(d2); RF.to=STATE.today; }
+  else { // 'all' / this batch: earliest order date through today
+    var ks=STATE.orders.map(function(o){return dateKey(o.orderDate);}).filter(Boolean).sort();
+    RF.from=ks[0]||_isoDay(new Date(t.getFullYear(),0,1)); RF.to=STATE.today;
+  }
+  renderView();
+}
+function setReportVariety(v){ RF.variety=v; renderView(); }
+// Active report orders after date + location (+ variety) filters.
+function reportOrders(includeCancelled){
+  var arr=reportData();
+  if(RF.variety && RF.variety!=='all') arr=arr.filter(function(x){return (x.items||[]).some(function(it){return it.v===RF.variety;});});
+  if(!includeCancelled) arr=arr.filter(function(x){return !x.cancelled;});
+  return arr;
+}
+function vQty(x,vid){ var n=0; (x.items||[]).forEach(function(it){ if(it.v===vid) n+=(+it.q||0); }); return n; }
+function vPrice(vid){ var v=vById(vid); return (v&&v.price)||0; }
 function reportData(){
   return visibleOrders().filter(function(x){
     var k=dateKey(x.orderDate);
@@ -918,21 +941,38 @@ function reportData(){
   });
 }
 function viewReports(){
-  if(!RF.to){ var _t=new Date(STATE.today+'T12:00'); var _hi=new Date(_t); _hi.setDate(_hi.getDate()+2); RF.to=_hi.toISOString().slice(0,10); var _lo=new Date(_t); _lo.setDate(_lo.getDate()-30); RF.from=_lo.toISOString().slice(0,10); }
-  var all=reportData();
-  var _dbg='DIAG · orders loaded: '+visibleOrders().length+'  ·  range '+RF.from+' → '+RF.to+'  ·  matched in range: '+all.length+'  ·  date samples: '+visibleOrders().slice(0,4).map(function(x){return '["'+(x.orderDate||'(blank)')+'" → '+(dateKey(x.orderDate)||'(none)')+']';}).join('  ');
-  var o=all.filter(function(x){return !x.cancelled;});
-  var gross=o.reduce(function(s,x){return s+x.total;},0), collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+  if(!RF.to){ var _t=new Date(STATE.today+'T12:00'); RF.to=STATE.today; var _lo=new Date(_t); _lo.setDate(_lo.getDate()-30); RF.from=_lo.toISOString().slice(0,10); }
+  if(!RF.variety) RF.variety='all';
+  var vfilt = RF.variety!=='all';
+  var o=reportOrders(false);
+  var gross, collected, boxCount;
+  if(vfilt){
+    gross=o.reduce(function(s,x){return s+vQty(x,RF.variety)*vPrice(RF.variety);},0);
+    collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+vQty(x,RF.variety)*vPrice(RF.variety);},0);
+    boxCount=o.reduce(function(s,x){return s+vQty(x,RF.variety);},0);
+  } else {
+    gross=o.reduce(function(s,x){return s+x.total;},0);
+    collected=o.filter(function(x){return x.paid;}).reduce(function(s,x){return s+x.total;},0);
+    boxCount=o.reduce(function(s,x){return s+(+x.totalBoxes||0);},0);
+  }
   var picked=o.length?Math.round(o.filter(function(x){return x.pickedUp;}).length/o.length*100):0;
-  var vm={}; o.forEach(function(x){x.items.forEach(function(it){vm[it.v]=(vm[it.v]||0)+it.q;});});
+  var vm={}; o.forEach(function(x){x.items.forEach(function(it){ if(!vfilt||it.v===RF.variety) vm[it.v]=(vm[it.v]||0)+it.q; });});
   var vRows=STATE.varieties.map(function(v){return {n:v.name,c:v.color,q:vm[v.id]||0};}).filter(function(x){return x.q;}).sort(function(a,b){return b.q-a.q;})
     .map(function(v){return '<tr><td><span class="dotb" style="background:'+v.c+';margin-right:8px"></span>'+esc(v.n)+'</td><td class="mono">'+v.q+'</td></tr>';}).join('');
-  var lm={}; o.forEach(function(x){var L=x.pickupLoc||'—'; lm[L]=lm[L]||{o:0,r:0,c:0}; lm[L].o++; lm[L].r+=x.total; if(x.paid)lm[L].c+=x.total;});
+  var lm={}; o.forEach(function(x){var L=x.pickupLoc||'—'; var rev=vfilt?vQty(x,RF.variety)*vPrice(RF.variety):x.total; lm[L]=lm[L]||{o:0,r:0,c:0}; lm[L].o++; lm[L].r+=rev; if(x.paid)lm[L].c+=rev;});
   var lRows=Object.keys(lm).sort(function(a,b){return lm[b].r-lm[a].r;}).map(function(L){var d=lm[L];return '<tr><td>'+esc(L)+'</td><td class="mono">'+d.o+'</td><td class="mono">'+money(d.r)+'</td><td class="mono" style="color:var(--green)">'+money(d.c)+'</td></tr>';}).join('');
-  return '<div class="page"><div class="page-head"><div><div class="page-title">Reports</div><div class="page-sub">Period analytics</div></div>'+
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+locFilterChip()+'<input class="sel" type="date" value="'+RF.from+'" onchange="RF.from=this.value;renderView()"><span style="color:var(--faint)">→</span><input class="sel" type="date" value="'+RF.to+'" onchange="RF.to=this.value;renderView()"></div></div>'+
-    '<div style="font:11px/1.5 monospace;color:#e8c79a;background:#2a1f12;border:1px solid #4a3a24;padding:7px 11px;border-radius:8px;margin-bottom:14px;word-break:break-all">'+esc(_dbg)+'</div>'+
-    '<div class="grid3" style="margin-bottom:16px"><div class="kpi"><div class="lab">Period Revenue</div><div class="val">'+money(gross)+'</div><div class="sub">'+o.length+' orders</div></div>'+
+  var varOpts='<option value="all"'+(RF.variety==='all'?' selected':'')+'>All varieties</option>'+STATE.varieties.map(function(v){return '<option value="'+esc(v.id)+'"'+(RF.variety===v.id?' selected':'')+'>'+esc(v.name)+'</option>';}).join('');
+  var presetBtn=function(kind,label){ return '<button class="btn btn-ghost btn-sm" onclick="setRangePreset(\''+kind+'\')">'+label+'</button>'; };
+  return '<div class="page"><div class="page-head"><div><div class="page-title">Reports</div><div class="page-sub">'+(vfilt?esc(vById(RF.variety).name)+' only':'Period analytics')+'</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">'+
+      '<div class="chip">'+ic('mappin',13)+'<select onchange="setLocFilter(this.value)"><option value="all"'+(STATE.locFilter==='all'?' selected':'')+'>All locations</option>'+STATE.locations.map(function(l){return '<option value="'+esc(l)+'"'+(STATE.locFilter===l?' selected':'')+'>'+esc(l)+'</option>';}).join('')+'</select></div>'+
+      '<div class="chip">'+ic('orders',13)+'<select onchange="setReportVariety(this.value)">'+varOpts+'</select></div>'+
+      '<input class="sel" type="date" value="'+RF.from+'" onchange="RF.from=this.value;renderView()"><span style="color:var(--faint)">→</span><input class="sel" type="date" value="'+RF.to+'" onchange="RF.to=this.value;renderView()"></div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">'+
+      '<span style="font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;margin-right:2px">Quick range</span>'+
+      presetBtn('all','This batch (all)')+presetBtn('30','Last 30 days')+presetBtn('7','Last 7 days')+presetBtn('today','Today')+
+      '<span style="flex:1"></span><span style="font-size:12px;color:var(--dim)">Showing <strong style="color:var(--text)">'+RF.from+'</strong> → <strong style="color:var(--text)">'+RF.to+'</strong></span></div>'+
+    '<div class="grid3" style="margin-bottom:16px"><div class="kpi"><div class="lab">'+(vfilt?'Variety Revenue':'Period Revenue')+'</div><div class="val">'+money(gross)+'</div><div class="sub">'+o.length+' orders'+(vfilt?' · '+boxCount+' boxes':'')+'</div></div>'+
       '<div class="kpi"><div class="lab">Collected</div><div class="val" style="color:var(--green)">'+money(collected)+'</div><div class="sub">'+(gross?Math.round(collected/gross*100):0)+'% collection rate</div></div>'+
       '<div class="kpi"><div class="lab">Pickup Completion</div><div class="val" style="color:var(--blue)">'+picked+'%</div><div class="sub">orders collected</div></div></div>'+
     '<div class="grid2" style="margin-bottom:16px">'+
@@ -949,7 +989,7 @@ function viewReports(){
 function drawReportsCharts(){
   Object.keys(CHARTS).forEach(function(k){ if(CHARTS[k]) CHARTS[k].destroy(); });
   if(!window.Chart) return;
-  var all=reportData(), o=all.filter(function(x){return !x.cancelled;});
+  var all=reportOrders(true), o=reportOrders(false);
   var tip={backgroundColor:'#271e14',borderColor:'#4a3a24',borderWidth:1,titleColor:'#f3e9d6',bodyColor:'#bca988'};
   var pieOpts={maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:11}}},tooltip:tip}};
   // payment breakdown (counts incl. cancelled)
