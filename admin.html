@@ -232,6 +232,7 @@
   .matrix td.num{text-align:center}
   .matrix .paidnum{color:#2D6B4D;font-weight:700}
   .matrix .unpaidnum{color:#C8973A}
+  .matrix .awaitnum{color:#4a90d9}
   .matrix .tot,.matrix tfoot td{background:#f7f4ec}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -405,8 +406,20 @@
         <div id="reports-variety" class="loading">Loading…</div>
       </div>
       <div class="panel">
-        <h2>📊 Variety × Location</h2>
+        <h2>📊 Variety × Location <span style="font-size:12px;color:#999;font-weight:400">(payment)</span></h2>
         <div id="reports-matrix" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>🚚 Picked Up vs Awaiting by Variety</h2>
+        <div id="reports-fulfillment" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>📦 Variety × Location <span style="font-size:12px;color:#999;font-weight:400">(pickup status)</span></h2>
+        <div id="reports-pickup-matrix" class="loading">Loading…</div>
+      </div>
+      <div class="panel">
+        <h2>🏆 Location Performance</h2>
+        <div id="reports-locperf" class="loading">Loading…</div>
       </div>
       <div class="panel">
         <h2>👥 Customer Details (filter & cancel unpaid)</h2>
@@ -2203,6 +2216,7 @@ function renderReports(){
 
   renderReportChart_(agg, VARS);
   renderReportCustomers_(data, VARS);
+  renderFulfillmentReports_(data, VARS, useLocs);
 }
 
 // Real chart (Chart.js): stacked paid/unpaid bar for all varieties,
@@ -2298,6 +2312,96 @@ function renderReportCustomers_(data, VARS){
     '<div style="font-size:13px;color:#666;margin-bottom:10px">Showing <strong>'+rows.length+'</strong> order(s)'+
       (unpaidCount?' · <span style="color:#C8973A;font-weight:700">'+unpaidCount+' unpaid</span>':'')+'</div>'+
     '<div style="overflow-x:auto"><table class="data-table">'+head+body+'</table></div>';
+}
+
+// ── Pickup fulfillment + location performance (computed from cached orders) ──
+function renderFulfillmentReports_(data, VARS, useLocs){
+  function isCancelled(o){ return ['cancelled','canceled','expired'].indexOf(String(o.paymentStatus||'').toLowerCase())>=0; }
+
+  // A) Per-variety: picked / awaiting (paid not picked) / not paid yet
+  var agg={}; VARS.forEach(function(v){ agg[v.key]={picked:0,awaiting:0,unpaid:0}; });
+  data.forEach(function(o){
+    if(isCancelled(o)) return;
+    var paid=!!o.paymentReceived, picked=!!o.pickedUp;
+    VARS.forEach(function(v){
+      var n=Number(o[v.key])||0; if(!n) return;
+      if(picked) agg[v.key].picked+=n; else if(paid) agg[v.key].awaiting+=n; else agg[v.key].unpaid+=n;
+    });
+  });
+  var maxTot=1; VARS.forEach(function(v){ var a=agg[v.key]; maxTot=Math.max(maxTot,a.picked+a.awaiting+a.unpaid); });
+  var fEl=document.getElementById('reports-fulfillment');
+  if(fEl){
+    fEl.innerHTML =
+      '<div class="rep-legend"><span><i style="background:#2D6B4D"></i>Picked up</span><span><i style="background:#4a90d9"></i>Awaiting pickup (paid)</span><span><i style="background:#C8973A"></i>Not paid yet</span></div>'+
+      '<div class="var-list">'+VARS.map(function(v){
+        var a=agg[v.key], tot=a.picked+a.awaiting+a.unpaid;
+        return '<div class="bar-row"><div class="bar-name">🥭 '+v.name+'</div>'+
+          '<div class="split-bar">'+
+            (a.picked  ?'<div style="background:linear-gradient(90deg,#2D6B4D,#3a8a63);min-width:2px;width:'+(a.picked/maxTot*100)+'%"></div>':'')+
+            (a.awaiting?'<div style="background:linear-gradient(90deg,#4a90d9,#6aa9e6);min-width:2px;width:'+(a.awaiting/maxTot*100)+'%"></div>':'')+
+            (a.unpaid  ?'<div style="background:linear-gradient(90deg,#F5C842,#C8973A);min-width:2px;width:'+(a.unpaid/maxTot*100)+'%"></div>':'')+
+          '</div>'+
+          '<div class="bar-stats"><strong>'+a.picked+'</strong> picked<br>'+
+            '<span style="color:#4a90d9">'+a.awaiting+' awaiting</span></div>'+
+        '</div>';
+      }).join('')+'</div>';
+  }
+
+  // B) Variety × Location — pickup view (picked vs awaiting)
+  function blank(){ var m={}; VARS.forEach(function(v){ m[v.key]={picked:0,awaiting:0}; }); return m; }
+  var cells={}; useLocs.forEach(function(l){ cells[l]=blank(); });
+  data.forEach(function(o){
+    if(isCancelled(o)) return;
+    var paid=!!o.paymentReceived, picked=!!o.pickedUp;
+    if(!paid && !picked) return;            // only paid/picked boxes are "in fulfillment"
+    var l=o.pickupLocation||'Unspecified'; if(!cells[l]) cells[l]=blank();
+    VARS.forEach(function(v){ var n=Number(o[v.key])||0; if(!n) return; if(picked) cells[l][v.key].picked+=n; else cells[l][v.key].awaiting+=n; });
+  });
+  var mEl=document.getElementById('reports-pickup-matrix');
+  if(mEl){
+    var head='<tr><th>Location</th>'+VARS.map(function(v){return '<th>'+v.name+'</th>';}).join('')+'<th>Total</th></tr>';
+    var body=Object.keys(cells).map(function(l){
+      var rp=0,ra=0;
+      var tds=VARS.map(function(v){ var c=cells[l][v.key]; rp+=c.picked; ra+=c.awaiting;
+        return '<td class="num"><span class="paidnum">'+c.picked+'</span>'+(c.awaiting?' <span class="awaitnum">('+c.awaiting+')</span>':'')+'</td>'; }).join('');
+      return '<tr><td>📍 '+escapeHtml(l)+'</td>'+tds+'<td class="num tot"><span class="paidnum">'+rp+'</span>'+(ra?' <span class="awaitnum">('+ra+')</span>':'')+'</td></tr>';
+    }).join('');
+    var foot='<tr><td class="tot">All</td>'+VARS.map(function(v){ var p=0,a=0; Object.keys(cells).forEach(function(l){ p+=cells[l][v.key].picked; a+=cells[l][v.key].awaiting; });
+      return '<td class="num tot"><span class="paidnum">'+p+'</span>'+(a?' <span class="awaitnum">('+a+')</span>':'')+'</td>'; }).join('')+'<td class="num tot"></td></tr>';
+    mEl.innerHTML='<div style="overflow-x:auto"><table class="data-table matrix">'+head+body+foot+'</table></div>'+
+      '<div class="rep-legend" style="margin-top:10px"><span><i style="background:#2D6B4D"></i>picked up</span><span><i style="background:#4a90d9"></i>(awaiting pickup)</span></div>';
+  }
+
+  // C) Location performance: orders, boxes, revenue, collected, pickup %
+  var perf={};
+  data.forEach(function(o){
+    if(isCancelled(o)) return;
+    var l=o.pickupLocation||'Unspecified';
+    if(!perf[l]) perf[l]={orders:0,boxes:0,revenue:0,collected:0,picked:0,paidOrders:0};
+    perf[l].orders++; perf[l].boxes+=Number(o.totalBoxes)||0; perf[l].revenue+=Number(o.totalAmount)||0;
+    if(o.paymentReceived){ perf[l].collected+=Number(o.totalAmount)||0; perf[l].paidOrders++; if(o.pickedUp) perf[l].picked++; }
+  });
+  var pEl=document.getElementById('reports-locperf');
+  if(pEl){
+    var keys=Object.keys(perf).sort(function(a,b){return perf[b].revenue-perf[a].revenue;});
+    if(keys.length===0){ pEl.innerHTML='<div class="empty">No orders yet.</div>'; }
+    else {
+      var head2='<tr><th>Location</th><th>Orders</th><th>Boxes</th><th>Revenue</th><th>Collected</th><th>Pickup %</th></tr>';
+      var tO=0,tB=0,tR=0,tC=0,tP=0,tPO=0;
+      var body2=keys.map(function(l){ var p=perf[l]; var pct=p.paidOrders?Math.round(p.picked/p.paidOrders*100):0;
+        tO+=p.orders;tB+=p.boxes;tR+=p.revenue;tC+=p.collected;tP+=p.picked;tPO+=p.paidOrders;
+        return '<tr><td>📍 '+escapeHtml(l)+'</td>'+
+          '<td class="num">'+p.orders+'</td><td class="num">'+p.boxes+'</td>'+
+          '<td class="num">$'+formatNum(p.revenue)+'</td>'+
+          '<td class="num"><span class="paidnum">$'+formatNum(p.collected)+'</span></td>'+
+          '<td class="num">'+pct+'%</td></tr>'; }).join('');
+      var foot2='<tr><td class="tot">All</td><td class="num tot">'+tO+'</td><td class="num tot">'+tB+'</td>'+
+        '<td class="num tot">$'+formatNum(tR)+'</td><td class="num tot"><span class="paidnum">$'+formatNum(tC)+'</span></td>'+
+        '<td class="num tot">'+(tPO?Math.round(tP/tPO*100):0)+'%</td></tr>';
+      pEl.innerHTML='<div style="overflow-x:auto"><table class="data-table matrix">'+head2+body2+foot2+'</table></div>'+
+        '<div class="filter-hint" style="margin-top:8px">Pickup % = picked-up orders ÷ paid orders at that location.</div>';
+    }
+  }
 }
 </script>
 
