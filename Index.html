@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <?!= include('Stylesheet'); ?>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="boot">
+    <div class="brand-mark">🥭</div>
+    <div class="spin"></div>
+    <div style="color:var(--faint);font-size:13px">Connecting to live data…</div>
+  </div>
+
+  <div id="app" style="display:none"></div>
+  <div id="overlay"></div>
+  <div id="toast"></div>
+
+  <script>
+    // Injected by the server template (the signed-in, authorized Google account)
+    window.VIEWER_EMAIL = "<?= viewerEmail ?>";
+  </script>
+  <?!= include('JavaScript'); ?>
+</body>
+</html>
