@@ -462,6 +462,17 @@
   </div>
 </div>
 
+<!-- WhatsApp payment reminders -->
+<div class="modal-overlay" id="wa-modal">
+  <div class="modal-card" style="max-width:460px;text-align:left;">
+    <h3 style="text-align:center;">💬 WhatsApp Payment Reminders</h3>
+    <p style="text-align:left;margin:0 0 8px;" id="wa-modal-count">…</p>
+    <p style="text-align:left;margin:0 0 12px;font-size:12.5px;color:#888;">Tap <strong>Send</strong> to open WhatsApp with a ready-to-send payment reminder (you press send). Uses each customer's WhatsApp number, or their phone if no WhatsApp is on file. Respects the current search/location filter.</p>
+    <div id="wa-list" style="max-height:48vh;overflow:auto;"></div>
+    <button class="modal-cancel" onclick="closeWaReminders()">Close</button>
+  </div>
+</div>
+
 <!-- Pickup location modal -->
 <div class="modal-overlay" id="loc-modal">
   <div class="modal-card" style="max-width:440px;text-align:left;">
@@ -784,7 +795,7 @@ function renderDashboardFromOrders(orders) {
   const moneyEl = document.getElementById('dashboard-money');
 
   try {
-    const PRICES = {banganapalli:47, rasalu:52, himayat:55, kesar:55};
+    const PRICES = {banganapalli:48, rasalu:52, himayat:60, kesar:55};
     const s = {
       totalOrders: 0, totalBoxes: 0, totalRevenue: 0,
       paid: 0, pending: 0, revenueCollected: 0,
@@ -872,9 +883,9 @@ function renderDashboardFromOrders(orders) {
 
     // ── VARIETIES (bars) ──
     const varieties = [
-      {key:'banganapalli', name:'Banganapalli', qty:s.varieties.banganapalli, rev:s.varietyRevenue.banganapalli, price:47},
+      {key:'banganapalli', name:'Banganapalli', qty:s.varieties.banganapalli, rev:s.varietyRevenue.banganapalli, price:48},
       {key:'rasalu',       name:'Rasalu',       qty:s.varieties.rasalu,       rev:s.varietyRevenue.rasalu,       price:52},
-      {key:'himayat',      name:'Himayat',      qty:s.varieties.himayat,      rev:s.varietyRevenue.himayat,      price:55},
+      {key:'himayat',      name:'Himayat',      qty:s.varieties.himayat,      rev:s.varietyRevenue.himayat,      price:60},
       {key:'kesar',        name:'Kesar',        qty:s.varieties.kesar,        rev:s.varietyRevenue.kesar,        price:55}
     ];
     const maxQty = Math.max(...varieties.map(v => v.qty), 1); // avoid div by zero
@@ -1163,6 +1174,66 @@ function copyPendingContacts(type){
   } else { toast('Clipboard not available in this browser.', true); }
 }
 
+// ============ WHATSAPP PAYMENT REMINDERS (unpaid orders) ============
+const ZELLE_PHONE = '972-654-9231';
+const ZELLE_NAME  = 'VSVV International';
+function _waDigits(s){
+  var d = String(s == null ? '' : s).replace(/[^0-9]/g, '');
+  if (d.length === 10) d = '1' + d;        // add US country code
+  return d.length >= 11 ? d : '';
+}
+function _waNumber(o){ return _waDigits(o.whatsapp) || _waDigits(o.phone); }
+function zelleReminderMsg(o){
+  var first = String(o.customerName || '').trim().split(/\s+/)[0] || 'there';
+  var amt = '$' + formatNum(o.totalAmount || 0);
+  var boxes = (o.totalBoxes || 0) + ' box' + ((o.totalBoxes || 0) === 1 ? '' : 'es');
+  return 'Hi ' + first + ' \uD83E\uDD6D This is TRU Mangoes. We have your pre-order #' + o.orderId +
+    ' (' + boxes + ', ' + amt + ') saved, but we haven\u2019t matched a payment to it yet \u2014 so it\u2019s not confirmed yet.\n\n' +
+    'To lock in your boxes, please send ' + amt + ' via Zelle to ' + ZELLE_PHONE + ' (' + ZELLE_NAME + ') and put this in the memo:\n' +
+    'Order #' + o.orderId + ' \u2014 ' + (o.customerName || '') + '\n\n' +
+    'Already paid? No need to pay again \u2014 just reply with the name the payment was sent under and we\u2019ll match it. Thank you! \uD83D\uDE4F';
+}
+function waLinkFor(o){
+  var num = _waNumber(o);
+  if (!num) return '';
+  return 'https://wa.me/' + num + '?text=' + encodeURIComponent(zelleReminderMsg(o));
+}
+// Per-order WhatsApp reminder button (unpaid orders only).
+function waButton(r){
+  if (r.paymentReceived) return '';
+  var st = String(r.paymentStatus || '').toLowerCase();
+  if (st === 'cancelled' || st === 'canceled' || st === 'expired') return '';
+  var link = waLinkFor(r);
+  if (!link) return '';
+  return '<a class="btn" href="' + link + '" target="_blank" rel="noopener" ' +
+    'style="margin-left:6px;font-size:11px;padding:3px 8px;background:#25D366;color:#fff;text-decoration:none;" ' +
+    'title="Open WhatsApp with a ready-to-send payment reminder">\uD83D\uDCAC WhatsApp</a>';
+}
+// Bulk reminder drawer: one tap per customer (you send each message).
+function openWaReminders(){
+  var list = _filteredPending().filter(function(o){ return !!waLinkFor(o); });
+  document.getElementById('wa-modal-count').textContent =
+    list.length + ' unpaid customer' + (list.length === 1 ? '' : 's') + ' with a usable WhatsApp/phone number';
+  var box = document.getElementById('wa-list');
+  if (!list.length){
+    box.innerHTML = '<div style="text-align:center;color:#888;padding:24px">No unpaid customers with a usable number in the current filter.</div>';
+  } else {
+    box.innerHTML = list.map(function(o){
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #eee">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:600;color:#1F4A2C">#' + o.orderId + ' \u00b7 ' + escapeHtml(o.customerName || '') + '</div>' +
+          '<div style="font-size:12px;color:#666">' + escapeHtml(String(o.whatsapp || o.phone || '')) + ' \u00b7 $' + formatNum(o.totalAmount || 0) + '</div>' +
+        '</div>' +
+        '<a class="btn btn-primary" href="' + waLinkFor(o) + '" target="_blank" rel="noopener" ' +
+        'style="background:#25D366;color:#fff;text-decoration:none;font-size:13px;padding:7px 12px" ' +
+        'onclick="this.style.opacity=.5;this.textContent=\'\u2713 Opened\'">\uD83D\uDCAC Send</a>' +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('wa-modal').style.display = 'flex';
+}
+function closeWaReminders(){ document.getElementById('wa-modal').style.display = 'none'; }
+
 function renderPending() {
   const el = document.getElementById('pending-list');
   const locs = selectedChips('chips-pending-loc');
@@ -1178,7 +1249,7 @@ function renderPending() {
     `<span style="font-size:14px;color:#666"><strong>${filtered.length}</strong> pending · <strong style="color:#C8973A">$${formatNum(outstanding)}</strong> outstanding</span>`+
     `<span style="flex:1"></span>`+
     `<button onclick="copyPendingContacts('phone')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy phones</button>`+
-    `<button onclick="copyPendingContacts('email')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy emails</button>`+
+    `<button onclick="copyPendingContacts('email')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy emails</button>`+`<button onclick="openWaReminders()" style="background:#25D366;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">💬 WhatsApp reminders</button>`+
     `</div>`;
   el.innerHTML = pendBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
@@ -1194,7 +1265,7 @@ function renderPending() {
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
-              <td>${actionButton(r, 'payment')}${cancelButton(r)}</td>
+              <td>${actionButton(r, 'payment')}${waButton(r)}${cancelButton(r)}</td>
             </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -1504,7 +1575,7 @@ function renderOrders() {
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
               <td><strong>$${formatNum(r.totalAmount)}</strong></td>
-              <td>${actionButton(r, 'payment')}${cancelButton(r)}</td>
+              <td>${actionButton(r, 'payment')}${waButton(r)}${cancelButton(r)}</td>
               <td>${actionButton(r, 'pickup')}</td>
             </tr>`).join('')}</tbody>
         </table>
@@ -1778,9 +1849,9 @@ function findOrderById(orderId){
 }
 let _priceOrderId = null;
 const PRICE_VARS = [
-  {k:'bangan',  n:'Banganapalli', p:47},
+  {k:'bangan',  n:'Banganapalli', p:48},
   {k:'rasalu',  n:'Rasalu',       p:52},
-  {k:'himayat', n:'Himayat',      p:55},
+  {k:'himayat', n:'Himayat',      p:60},
   {k:'kesar',   n:'Kesar',        p:55}
 ];
 function openPriceModal(orderId){
@@ -1970,7 +2041,7 @@ function openAdjustModal(orderId){
   if(!o){ toast('Order not found — hit Refresh and try again.', true); return; }
   _adjOrderId = orderId;
   document.getElementById('adjust-modal-order').textContent = '#' + orderId;
-  const VARS=[{k:'bangan',n:'Banganapalli',p:47},{k:'rasalu',n:'Rasalu',p:52},{k:'himayat',n:'Himayat',p:55},{k:'kesar',n:'Kesar',p:55}];
+  const VARS=[{k:'bangan',n:'Banganapalli',p:48},{k:'rasalu',n:'Rasalu',p:52},{k:'himayat',n:'Himayat',p:60},{k:'kesar',n:'Kesar',p:55}];
   const shown = VARS.filter(function(v){ return Number(o[v.k])>0; });
   document.getElementById('adjust-rows').innerHTML = shown.length ? shown.map(function(v){
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e9d8">'+
@@ -1995,10 +2066,10 @@ function closeAdjustModal(){ document.getElementById('adjust-modal').style.displ
 
 // ============ NEW ORDER (staff-created) ============
 var NO_VARS = [
-  {k:'bangan',  n:'Banganapalli', p:47},
+  {k:'bangan',  n:'Banganapalli', p:48},
   {k:'kesar',   n:'Kesar',        p:55},
   {k:'rasalu',  n:'Rasalu',       p:52},
-  {k:'himayat', n:'Himayat',      p:55}
+  {k:'himayat', n:'Himayat',      p:60}
 ];
 function openNewOrderModal(){
   window._noTouched = false;
@@ -2138,9 +2209,9 @@ function renderReports(){
   var useLocs = locFilter ? [locFilter] : allLocs;
 
   var VARS = [
-    {key:'bangan', name:'Banganapalli', price:47},
+    {key:'bangan', name:'Banganapalli', price:48},
     {key:'rasalu', name:'Rasalu',       price:52},
-    {key:'himayat',name:'Himayat',      price:55},
+    {key:'himayat',name:'Himayat',      price:60},
     {key:'kesar',  name:'Kesar',        price:55}
   ];
 
