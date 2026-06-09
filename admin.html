@@ -467,7 +467,7 @@
   <div class="modal-card" style="max-width:460px;text-align:left;">
     <h3 style="text-align:center;">💬 WhatsApp Payment Reminders</h3>
     <p style="text-align:left;margin:0 0 8px;" id="wa-modal-count">…</p>
-    <p style="text-align:left;margin:0 0 12px;font-size:12.5px;color:#888;">Tap <strong>Send</strong> to open WhatsApp with a ready-to-send payment reminder (you press send). Uses each customer's WhatsApp number, or their phone if no WhatsApp is on file. Respects the current search/location filter.</p>
+    <p style="text-align:left;margin:0 0 12px;font-size:12.5px;color:#888;">Tap <strong>Send</strong> to open WhatsApp with a ready-to-send payment reminder (you press send). Uses each customer's WhatsApp number, or their phone if no WhatsApp is on file. If you ticked specific customers, only those appear here; otherwise it uses the current search/location filter.</p>
     <div id="wa-list" style="max-height:48vh;overflow:auto;"></div>
     <button class="modal-cancel" onclick="closeWaReminders()">Close</button>
   </div>
@@ -1209,11 +1209,82 @@ function waButton(r){
     'style="margin-left:6px;font-size:11px;padding:3px 8px;background:#25D366;color:#fff;text-decoration:none;" ' +
     'title="Open WhatsApp with a ready-to-send payment reminder">\uD83D\uDCAC WhatsApp</a>';
 }
+// ----- Selection state for "pick specific people" -----
+// Holds the orderIds (as strings) the user has ticked on the Pending tab.
+// Selection survives re-renders and filter changes: a checked customer stays
+// checked even if the location filter would otherwise hide them.
+var waSelected = (typeof waSelected !== 'undefined') ? waSelected : new Set();
+
+function toggleWaPick(oid, on){
+  oid = String(oid);
+  if (on) waSelected.add(oid); else waSelected.delete(oid);
+  refreshWaSelUi();
+}
+// Header checkbox inside one location table — ticks/unticks just that group.
+function waSelectGroup(headerCb){
+  var table = headerCb.closest('table');
+  if (!table) return;
+  table.querySelectorAll('tbody .wa-pick').forEach(function(cb){
+    cb.checked = headerCb.checked;
+    var oid = String(cb.getAttribute('data-oid'));
+    if (headerCb.checked) waSelected.add(oid); else waSelected.delete(oid);
+  });
+  refreshWaSelUi();
+}
+// "Select all shown" — every row currently visible under the active filters.
+function waSelectAllPending(on){
+  _filteredPending().forEach(function(o){
+    var oid = String(o.orderId);
+    if (on) waSelected.add(oid); else waSelected.delete(oid);
+  });
+  document.querySelectorAll('#pending-list .wa-pick').forEach(function(cb){ cb.checked = on; });
+  document.querySelectorAll('#pending-list [data-locgroup]').forEach(function(cb){ cb.checked = on; });
+  refreshWaSelUi();
+}
+function clearWaPicks(){
+  waSelected.clear();
+  document.querySelectorAll('#pending-list .wa-pick').forEach(function(cb){ cb.checked = false; });
+  document.querySelectorAll('#pending-list [data-locgroup]').forEach(function(cb){ cb.checked = false; });
+  refreshWaSelUi();
+}
+// Update the button label, the Clear control, and the Select-all box state.
+function refreshWaSelUi(){
+  var n = waSelected.size;
+  var btn = document.getElementById('wa-bulk-btn');
+  if (btn) btn.textContent = '💬 WhatsApp reminders' + (n ? ' (' + n + ')' : '');
+  var clr = document.getElementById('wa-clear-btn');
+  if (clr){ clr.style.display = n ? '' : 'none'; var cn = document.getElementById('wa-clear-n'); if (cn) cn.textContent = n; }
+  syncWaSelectAllBox();
+}
+// Reflect partial / full selection on the "Select all shown" box.
+function syncWaSelectAllBox(){
+  var sa = document.getElementById('wa-selectall');
+  if (!sa) return;
+  var shown = _filteredPending().map(function(o){ return String(o.orderId); });
+  if (!shown.length){ sa.checked = false; sa.indeterminate = false; return; }
+  var picked = shown.filter(function(id){ return waSelected.has(id); }).length;
+  sa.checked = (picked === shown.length);
+  sa.indeterminate = (picked > 0 && picked < shown.length);
+}
+
 // Bulk reminder drawer: one tap per customer (you send each message).
+// If any customers are ticked, only those get reminders; otherwise it falls
+// back to everyone in the current filter (the original behavior).
 function openWaReminders(){
-  var list = _filteredPending().filter(function(o){ return !!waLinkFor(o); });
+  var source, scopeLabel;
+  if (waSelected.size){
+    source = (cachedData.pending || []).filter(function(o){ return waSelected.has(String(o.orderId)); });
+    scopeLabel = 'selected';
+  } else {
+    source = _filteredPending();
+    scopeLabel = 'filtered';
+  }
+  var list = source.filter(function(o){ return !!waLinkFor(o); });
+  var noNum = source.length - list.length;
   document.getElementById('wa-modal-count').textContent =
-    list.length + ' unpaid customer' + (list.length === 1 ? '' : 's') + ' with a usable WhatsApp/phone number';
+    list.length + ' ' + scopeLabel + ' unpaid customer' + (list.length === 1 ? '' : 's') +
+    ' with a usable WhatsApp/phone number' +
+    (noNum ? ' (' + noNum + ' skipped — no usable number)' : '');
   var box = document.getElementById('wa-list');
   if (!list.length){
     box.innerHTML = '<div style="text-align:center;color:#888;padding:24px">No unpaid customers with a usable number in the current filter.</div>';
@@ -1245,11 +1316,16 @@ function renderPending() {
   }
   const groups = groupByLocation(filtered);
   const outstanding = filtered.reduce((s,o)=>s+(o.totalAmount||0),0);
+  const selN = waSelected.size;
   const pendBar = `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">`+
     `<span style="font-size:14px;color:#666"><strong>${filtered.length}</strong> pending · <strong style="color:#C8973A">$${formatNum(outstanding)}</strong> outstanding</span>`+
+    `<label style="font-size:13px;color:#1F4A2C;display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none">`+
+      `<input type="checkbox" id="wa-selectall" onchange="waSelectAllPending(this.checked)" style="width:16px;height:16px;cursor:pointer"> Select all shown</label>`+
+    `<button id="wa-clear-btn" onclick="clearWaPicks()" style="background:#eee;color:#555;border:none;padding:6px 12px;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;${selN?'':'display:none'}">✕ Clear selection (<span id="wa-clear-n">${selN}</span>)</button>`+
     `<span style="flex:1"></span>`+
     `<button onclick="copyPendingContacts('phone')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy phones</button>`+
-    `<button onclick="copyPendingContacts('email')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy emails</button>`+`<button onclick="openWaReminders()" style="background:#25D366;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">💬 WhatsApp reminders</button>`+
+    `<button onclick="copyPendingContacts('email')" style="background:#1F4A2C;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">📋 Copy emails</button>`+
+    `<button id="wa-bulk-btn" onclick="openWaReminders()" style="background:#25D366;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px">💬 WhatsApp reminders${selN?' ('+selN+')':''}</button>`+
     `</div>`;
   el.innerHTML = pendBar + Object.entries(groups).map(([loc, orders]) => `
     <div class="loc-section">
@@ -1257,10 +1333,12 @@ function renderPending() {
       <div class="loc-body">
         <table class="data-table">
           <thead><tr>
+            <th style="width:34px;text-align:center"><input type="checkbox" onchange="waSelectGroup(this)" data-locgroup="1" style="width:16px;height:16px;cursor:pointer" title="Select everyone in this location"></th>
             <th>Order</th><th>Customer Details</th><th>Boxes</th><th>Total</th><th>Action</th>
           </tr></thead>
           <tbody>${orders.map(r => `
             <tr>
+              <td style="text-align:center"><input type="checkbox" class="wa-pick" data-oid="${r.orderId}" onchange="toggleWaPick('${r.orderId}', this.checked)" ${waSelected.has(String(r.orderId)) ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer"></td>
               <td><span class="order-id">#${r.orderId}</span><br><small style="color:#888">${r.orderDate || ''}</small></td>
               <td>${custCell(r)}</td>
               <td><strong>${r.totalBoxes}</strong><br><small style="color:#666">${varietyCell(r)}</small></td>
@@ -1270,6 +1348,7 @@ function renderPending() {
         </table>
       </div>
     </div>`).join('');
+  syncWaSelectAllBox();
 }
 
 function renderPaid() {
