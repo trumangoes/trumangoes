@@ -258,7 +258,7 @@
     <div class="topbar-actions">
       <span id="role-badge" class="badge-role badge-admin">ADMIN</span>
       <a onclick="openNewOrderModal()">➕ New Order</a>
-      <a onclick="refreshAll()">🔄 Refresh</a>
+      <a onclick="refreshAll()">🔄 Refresh</a><span id="auto-updated" style="font-size:11px;color:#6b6256;margin-left:4px"></span>
       <a onclick="logout()">Sign Out</a>
     </div>
   </div>
@@ -722,8 +722,8 @@ async function resetAllOrdersFromGui() {
   }
 }
 
-async function refreshAll() {
-  toast('Refreshing data…');
+async function refreshAll(silent) {
+  if (!silent) toast('Refreshing data…');
   // Single source of truth: load ALL orders once, derive every list from it.
   // This guarantees the dashboard and the tabs can never disagree.
   try {
@@ -749,12 +749,13 @@ async function refreshAll() {
       updateCount('paid',    cachedData.paid.length);
       updateCount('orders',  cachedData.orders.length);
       renderDashboardFromOrders(r.data);
-      toast('✓ Data refreshed · ' + r.data.length + ' orders');
+      if (!silent) toast('✓ Data refreshed · ' + r.data.length + ' orders');
+      _setLastUpdated();
     } else {
-      toast('⚠️ Could not load orders: ' + (r.message || 'unknown error'));
+      if (!silent) toast('⚠️ Could not load orders: ' + (r.message || 'unknown error'));
     }
   } catch (err) {
-    toast('⚠️ Connection error: ' + err.message);
+    if (!silent) toast('⚠️ Connection error: ' + err.message);
   }
 }
 
@@ -2585,6 +2586,35 @@ function renderFulfillmentReports_(data, VARS, useLocs){
     }
   }
 }
+
+/* ===== Auto-refresh every 20s (silent + non-disruptive) ===== */
+var AUTO_REFRESH_MS = 20000;
+var _autoBusy = false;
+function _setLastUpdated(){
+  var el = document.getElementById('auto-updated');
+  if (el) el.textContent = '\u00b7 updated ' + new Date().toLocaleTimeString();
+}
+function _anyModalOpen(){
+  return Array.prototype.some.call(document.querySelectorAll('.modal-overlay'), function(m){
+    return m.style.display && m.style.display !== 'none';
+  });
+}
+function _hasActiveSelection(){
+  return !!document.querySelector('#app input[type="checkbox"]:checked');
+}
+async function autoRefreshTick(){
+  var app = document.getElementById('app');
+  if (!app || app.style.display === 'none') return;  // not logged in yet
+  if (document.hidden) return;                        // tab not visible
+  if (_anyModalOpen()) return;                        // a dialog/drawer is open
+  if (_hasActiveSelection()) return;                  // mid multi-select
+  if (_autoBusy) return;                              // a refresh is already running
+  _autoBusy = true;
+  try { await refreshAll(true); } catch (e) {} finally { _autoBusy = false; }
+}
+setInterval(autoRefreshTick, AUTO_REFRESH_MS);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) autoRefreshTick(); });
+
 </script>
 
 </body>
