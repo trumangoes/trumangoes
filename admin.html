@@ -2587,13 +2587,12 @@ function renderFulfillmentReports_(data, VARS, useLocs){
   }
 }
 
-/* ===== Auto-refresh every 20s (silent + non-disruptive) ===== */
-var AUTO_REFRESH_MS = 20000;
+/* ===== Auto-refresh with visible countdown (silent + non-disruptive) ===== */
+var AUTO_REFRESH_SECONDS = 20;
+var _autoLeft = AUTO_REFRESH_SECONDS;
 var _autoBusy = false;
-function _setLastUpdated(){
-  var el = document.getElementById('auto-updated');
-  if (el) el.textContent = '\u00b7 updated ' + new Date().toLocaleTimeString();
-}
+var _lastUpdatedStr = '';
+function _setLastUpdated(){ _lastUpdatedStr = new Date().toLocaleTimeString(); }
 function _anyModalOpen(){
   return Array.prototype.some.call(document.querySelectorAll('.modal-overlay'), function(m){
     return m.style.display && m.style.display !== 'none';
@@ -2602,18 +2601,36 @@ function _anyModalOpen(){
 function _hasActiveSelection(){
   return !!document.querySelector('#app input[type="checkbox"]:checked');
 }
-async function autoRefreshTick(){
+function _autoPaused(){
   var app = document.getElementById('app');
-  if (!app || app.style.display === 'none') return;  // not logged in yet
-  if (document.hidden) return;                        // tab not visible
-  if (_anyModalOpen()) return;                        // a dialog/drawer is open
-  if (_hasActiveSelection()) return;                  // mid multi-select
-  if (_autoBusy) return;                              // a refresh is already running
-  _autoBusy = true;
-  try { await refreshAll(true); } catch (e) {} finally { _autoBusy = false; }
+  if (!app || app.style.display === 'none') return true;  // not logged in
+  if (document.hidden) return true;                        // tab not visible
+  if (_anyModalOpen()) return true;                        // a dialog/drawer is open
+  if (_hasActiveSelection()) return true;                  // mid multi-select
+  return false;
 }
-setInterval(autoRefreshTick, AUTO_REFRESH_MS);
-document.addEventListener('visibilitychange', function(){ if (!document.hidden) autoRefreshTick(); });
+function _renderAutoStatus(){
+  var el = document.getElementById('auto-updated');
+  if (!el) return;
+  if (_autoBusy)     { el.textContent = '· refreshing…'; return; }
+  if (_autoPaused()) { el.textContent = '· auto-refresh paused'; return; }
+  el.textContent = '· next refresh in ' + _autoLeft + 's';
+}
+async function _autoDoRefresh(){
+  if (_autoBusy) return;
+  _autoBusy = true; _renderAutoStatus();
+  try { await refreshAll(true); } catch (e) {} finally { _autoBusy = false; _renderAutoStatus(); }
+}
+function _autoTick(){
+  if (_autoPaused() || _autoBusy) { _renderAutoStatus(); return; }   // hold countdown while you work
+  _autoLeft--;
+  if (_autoLeft <= 0) { _autoLeft = AUTO_REFRESH_SECONDS; _autoDoRefresh(); }
+  _renderAutoStatus();
+}
+setInterval(_autoTick, 1000);
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden) { _autoLeft = AUTO_REFRESH_SECONDS; _autoDoRefresh(); }
+});
 
 </script>
 
