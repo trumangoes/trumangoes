@@ -1143,7 +1143,7 @@ function custCell(r) {
       ${r.email ? `<span title="Email">✉️ ${escapeHtml(r.email)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}
-    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button><button type="button" class="note-btn" onclick="openLocationModal('${r.orderId}')" style="margin-left:6px">📍 Location</button><button type="button" class="note-btn" onclick="openAdjustModal('${r.orderId}')" style="margin-left:6px">✏️ Items</button><button type="button" class="note-btn" onclick="openContactModal('${r.orderId}')" style="margin-left:6px">👤 Contact</button><button type="button" class="note-btn" onclick="copyOrderForWa('${r.orderId}')" style="margin-left:6px">📋 Copy</button><button type="button" class="note-btn" onclick="resendConfirmation('${r.orderId}')" style="margin-left:6px">✉️ Resend</button><button type="button" class="note-btn" onclick="duplicateOrder('${r.orderId}')" style="margin-left:6px">⧉ Duplicate</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
+    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button><button type="button" class="note-btn" onclick="openLocationModal('${r.orderId}')" style="margin-left:6px">📍 Location</button><button type="button" class="note-btn" onclick="openAdjustModal('${r.orderId}')" style="margin-left:6px">✏️ Items</button><button type="button" class="note-btn" onclick="openContactModal('${r.orderId}')" style="margin-left:6px">👤 Contact</button><button type="button" class="note-btn" onclick="copyOrderForWa('${r.orderId}')" style="margin-left:6px">📋 Copy</button><button type="button" class="note-btn" onclick="resendConfirmation('${r.orderId}')" style="margin-left:6px">✉️ Resend</button><button type="button" class="note-btn" onclick="duplicateOrder('${r.orderId}')" style="margin-left:6px">⧉ Duplicate</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button><button type="button" class="note-btn" onclick="deleteOrder('${r.orderId}')" style="margin-left:6px;border-color:#c0392b;color:#c0392b">🗑️ Delete</button>` : ''}`;
 }
 
 function escapeHtml(s) {
@@ -2719,6 +2719,17 @@ function renderStockLeft_(orders){
       '<div style="background:#eee;border-radius:6px;height:9px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+color+'"></div></div>'+
     '</div>';
   }).join('') || '<div style="color:#999">No caps configured.</div>';
+}
+
+/* ===== Delete order (admin only, permanent) ===== */
+async function deleteOrder(orderId){
+  var o=findOrderById(orderId);
+  var who=(o&&o.customerName)?(' for '+o.customerName):'';
+  if(!confirm('\u26a0\ufe0f Permanently DELETE order #'+orderId+who+'?\n\nThis removes it from the sheet for good and cannot be undone.\n(To keep a record you can look up later, use Cancel instead.)')) return;
+  toast('Deleting\u2026');
+  var r=await api('deleteOrder', {orderId:orderId});
+  if(r.status==='ok'){ toast('\u2713 '+(r.message||'Deleted')); refreshAll(); }
+  else { toast('\u274c '+(r.message||'Delete failed'), true); }
 }
 
 /* ===== Auto-refresh with visible countdown (silent + non-disruptive) ===== */
