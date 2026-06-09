@@ -258,7 +258,8 @@
     <div class="topbar-actions">
       <span id="role-badge" class="badge-role badge-admin">ADMIN</span>
       <a onclick="openNewOrderModal()">➕ New Order</a>
-      <a onclick="refreshAll()">🔄 Refresh</a><span id="auto-updated" style="font-size:11px;color:#6b6256;margin-left:4px"></span>
+      <a id="auto-toggle" onclick="toggleAutoRefresh()" style="color:#9ff0b4">🟢 Auto-refresh ON</a>
+      <a onclick="refreshAll()">🔄 Refresh</a><span id="auto-updated" style="font-size:11px;color:rgba(255,255,255,.8);margin-left:4px"></span>
       <a onclick="logout()">Sign Out</a>
     </div>
   </div>
@@ -2592,6 +2593,7 @@ var AUTO_REFRESH_SECONDS = 20;
 var _autoLeft = AUTO_REFRESH_SECONDS;
 var _autoBusy = false;
 var _lastUpdatedStr = '';
+var _autoOn = (function(){ try { return localStorage.getItem('tru_auto_refresh') !== 'off'; } catch(e){ return true; } })();
 function _setLastUpdated(){ _lastUpdatedStr = new Date().toLocaleTimeString(); }
 function _anyModalOpen(){
   return Array.prototype.some.call(document.querySelectorAll('.modal-overlay'), function(m){
@@ -2612,6 +2614,7 @@ function _autoPaused(){
 function _renderAutoStatus(){
   var el = document.getElementById('auto-updated');
   if (!el) return;
+  if (!_autoOn)      { el.textContent = ''; return; }
   if (_autoBusy)     { el.textContent = '· refreshing…'; return; }
   if (_autoPaused()) { el.textContent = '· auto-refresh paused'; return; }
   el.textContent = '· next refresh in ' + _autoLeft + 's';
@@ -2622,15 +2625,31 @@ async function _autoDoRefresh(){
   try { await refreshAll(true); } catch (e) {} finally { _autoBusy = false; _renderAutoStatus(); }
 }
 function _autoTick(){
+  if (!_autoOn) { _renderAutoStatus(); return; }
   if (_autoPaused() || _autoBusy) { _renderAutoStatus(); return; }   // hold countdown while you work
   _autoLeft--;
   if (_autoLeft <= 0) { _autoLeft = AUTO_REFRESH_SECONDS; _autoDoRefresh(); }
   _renderAutoStatus();
 }
+function _updateAutoToggleBtn(){
+  var b = document.getElementById('auto-toggle');
+  if (!b) return;
+  b.textContent = _autoOn ? '🟢 Auto-refresh ON' : '⚪ Auto-refresh OFF';
+  b.style.color = _autoOn ? '#9ff0b4' : '#f3b0b0';
+}
+function toggleAutoRefresh(){
+  _autoOn = !_autoOn;
+  try { localStorage.setItem('tru_auto_refresh', _autoOn ? 'on' : 'off'); } catch(e){}
+  if (_autoOn) _autoLeft = AUTO_REFRESH_SECONDS;
+  _updateAutoToggleBtn();
+  _renderAutoStatus();
+  if (_autoOn) _autoDoRefresh();
+}
 setInterval(_autoTick, 1000);
 document.addEventListener('visibilitychange', function(){
-  if (!document.hidden) { _autoLeft = AUTO_REFRESH_SECONDS; _autoDoRefresh(); }
+  if (!document.hidden && _autoOn) { _autoLeft = AUTO_REFRESH_SECONDS; _autoDoRefresh(); }
 });
+_updateAutoToggleBtn();
 
 </script>
 
