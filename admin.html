@@ -834,6 +834,7 @@ function renderDashboardFromOrders(orders) {
       varietyRevenue: {banganapalli:0, kesar:0, rasalu:0, himayat:0}
     };
     (orders || []).forEach(o => {
+      if (['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase())) return;
       s.totalOrders++;
       s.varieties.banganapalli += Number(o.bangan)  || 0;
       s.varieties.kesar        += Number(o.kesar)   || 0;
@@ -1153,6 +1154,11 @@ function escapeHtml(s) {
 // ============ RENDER (with location grouping & filtering) ============
 function applyFilters(orders, locs, search, statuses) {
   let out = orders;
+  // Hide cancelled/expired by default; they appear only when the Cancelled filter is selected.
+  var _wantCancelled = !!(statuses && statuses.length && statuses.indexOf('cancelled') !== -1);
+  if (!_wantCancelled) {
+    out = out.filter(function(o){ return !['cancelled','canceled','expired'].includes(String(o.paymentStatus || '').toLowerCase()); });
+  }
   if (locs && locs.length) out = out.filter(o => locs.includes(o.pickupLocation));
   if (statuses && statuses.length) {
     out = out.filter(o => {
