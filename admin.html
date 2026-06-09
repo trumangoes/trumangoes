@@ -291,6 +291,12 @@
         <div id="dashboard-varieties" class="loading">Loading…</div>
       </div>
 
+      <!-- Boxes remaining vs cap -->
+      <div class="panel">
+        <h2>📦 Boxes Remaining</h2>
+        <div id="dashboard-stockleft" class="loading">Loading…</div>
+      </div>
+
       <!-- Order pipeline -->
       <div class="panel">
         <h2>📈 Order Pipeline</h2>
@@ -490,6 +496,26 @@
   </div>
 </div>
 
+<!-- Edit contact modal -->
+<div class="modal-overlay" id="contact-modal">
+  <div class="modal-card" style="max-width:440px;text-align:left">
+    <h3 style="text-align:center">👤 Edit Contact <span id="contact-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 12px">Fix the customer's name or contact details. A note of the change is kept on the order.</p>
+    <label style="font-size:13px;color:#555">Name</label>
+    <input id="contact-name" type="text" maxlength="80" style="width:100%;box-sizing:border-box;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;margin:4px 0 12px">
+    <label style="font-size:13px;color:#555">Phone</label>
+    <input id="contact-phone" type="text" maxlength="30" style="width:100%;box-sizing:border-box;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;margin:4px 0 12px">
+    <label style="font-size:13px;color:#555">WhatsApp</label>
+    <input id="contact-whatsapp" type="text" maxlength="30" style="width:100%;box-sizing:border-box;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;margin:4px 0 12px">
+    <label style="font-size:13px;color:#555">Email</label>
+    <input id="contact-email" type="text" maxlength="120" style="width:100%;box-sizing:border-box;padding:11px;font-size:15px;border:1.5px solid #cfd8cf;border-radius:8px;margin:4px 0 12px">
+    <div class="modal-pay-btns" style="margin-top:8px">
+      <button onclick="saveContact()">💾 Save contact</button>
+    </div>
+    <button class="modal-cancel" onclick="closeContactModal()">Cancel</button>
+  </div>
+</div>
+
 <!-- Per-variety price editor modal -->
 <div class="modal-overlay" id="price-modal">
   <div class="modal-card" style="max-width:460px;text-align:left">
@@ -507,8 +533,8 @@
 <!-- Edit / partial-cancel items modal -->
 <div class="modal-overlay" id="adjust-modal">
   <div class="modal-card" style="max-width:480px;text-align:left">
-    <h3 style="text-align:center">✏️ Edit / Cancel Items <span id="adjust-modal-order">#0</span></h3>
-    <p style="text-align:left;margin:0 0 12px">Set how many boxes of each variety to <strong>keep</strong>. Lower a number to cancel some, set a variety to <strong>0</strong> to drop just that one, or set everything to 0 to cancel the whole order.</p>
+    <h3 style="text-align:center">✏️ Edit Items <span id="adjust-modal-order">#0</span></h3>
+    <p style="text-align:left;margin:0 0 12px">Set the number of boxes for each variety. <strong>Increase</strong> to add more (or add a variety currently at 0), <strong>lower</strong> to remove some, set one to <strong>0</strong> to drop it, or set all to 0 to cancel the order. The total updates automatically.</p>
     <div id="adjust-rows"></div>
     <div id="adjust-newtotal" style="text-align:right;font-weight:700;color:#1F4A2C;margin-top:12px"></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-top:14px;cursor:pointer">
@@ -749,7 +775,7 @@ async function refreshAll(silent) {
       updateCount('pending', cachedData.pending.length);
       updateCount('paid',    cachedData.paid.length);
       updateCount('orders',  cachedData.orders.length);
-      renderDashboardFromOrders(r.data);
+      renderDashboardFromOrders(r.data); try{renderStockLeft_(r.data);}catch(e){}
       if (!silent) toast('✓ Data refreshed · ' + r.data.length + ' orders');
       _setLastUpdated();
     } else {
@@ -777,7 +803,7 @@ function rerenderFromCache() {
   updateCount('pending', cachedData.pending.length);
   updateCount('paid',    cachedData.paid.length);
   updateCount('orders',  cachedData.orders.length);
-  try { renderDashboardFromOrders(cachedData.orders); } catch(e){}
+  try { renderDashboardFromOrders(cachedData.orders); try{renderStockLeft_(cachedData.orders);}catch(e){} } catch(e){}
 }
 
 // Apply field changes to one order in memory, then re-render instantly.
@@ -1116,7 +1142,7 @@ function custCell(r) {
       ${r.email ? `<span title="Email">✉️ ${escapeHtml(r.email)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="cust-notes">📝 ${escapeHtml(r.notes)}</div>` : ''}
-    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button><button type="button" class="note-btn" onclick="openLocationModal('${r.orderId}')" style="margin-left:6px">📍 Location</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
+    <button type="button" class="note-btn" onclick="openNoteModal('${r.orderId}')">${r.notes ? '✎ Edit note' : '➕ Add note'}</button><button type="button" class="note-btn" onclick="openLocationModal('${r.orderId}')" style="margin-left:6px">📍 Location</button><button type="button" class="note-btn" onclick="openAdjustModal('${r.orderId}')" style="margin-left:6px">✏️ Items</button><button type="button" class="note-btn" onclick="openContactModal('${r.orderId}')" style="margin-left:6px">👤 Contact</button><button type="button" class="note-btn" onclick="copyOrderForWa('${r.orderId}')" style="margin-left:6px">📋 Copy</button><button type="button" class="note-btn" onclick="resendConfirmation('${r.orderId}')" style="margin-left:6px">✉️ Resend</button><button type="button" class="note-btn" onclick="duplicateOrder('${r.orderId}')" style="margin-left:6px">⧉ Duplicate</button>${userRole === 'admin' ? `<button type="button" class="note-btn" onclick="openPriceModal('${r.orderId}')" style="margin-left:6px">💲 Edit $</button>` : ''}`;
 }
 
 function escapeHtml(s) {
@@ -2154,14 +2180,14 @@ function openAdjustModal(orderId){
   if(!o){ toast('Order not found — hit Refresh and try again.', true); return; }
   _adjOrderId = orderId;
   document.getElementById('adjust-modal-order').textContent = '#' + orderId;
-  const VARS=[{k:'bangan',n:'Banganapalli',p:48},{k:'rasalu',n:'Rasalu',p:52},{k:'himayat',n:'Himayat',p:60},{k:'kesar',n:'Kesar',p:55}];
-  const shown = VARS.filter(function(v){ return Number(o[v.k])>0; });
-  document.getElementById('adjust-rows').innerHTML = shown.length ? shown.map(function(v){
+  const VARS=[{k:'bangan',n:'Banganapalli',p:48},{k:'rasalu',n:'Cheruku Rasalu',p:52},{k:'himayat',n:'Himayat',p:60},{k:'kesar',n:'Kesar',p:55}];
+  document.getElementById('adjust-rows').innerHTML = VARS.map(function(v){
+    var cur = Number(o[v.k])||0;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0e9d8">'+
-      '<span>'+v.n+' <span style="color:#999;font-size:12px">($'+v.p+'/box)</span></span>'+
-      '<span style="font-size:13px;color:#555">keep <input type="number" min="0" max="'+o[v.k]+'" value="'+o[v.k]+'" data-k="'+v.k+'" data-p="'+v.p+'" oninput="adjRecalc()" style="width:64px;padding:6px;border:1px solid #e6dfd0;border-radius:6px;text-align:center;margin:0 4px"> of '+o[v.k]+'</span>'+
+      '<span>'+v.n+' <span style="color:#999;font-size:12px">($'+v.p+'/box)</span>'+(cur?' <span style="color:#999;font-size:11px">• now '+cur+'</span>':'')+'</span>'+
+      '<span style="font-size:13px;color:#555"><input type="number" min="0" value="'+cur+'" data-k="'+v.k+'" data-p="'+v.p+'" oninput="adjRecalc()" style="width:72px;padding:6px;border:1px solid #e6dfd0;border-radius:6px;text-align:center;margin:0 4px"> boxes</span>'+
     '</div>';
-  }).join('') : '<div style="color:#999">No items on this order.</div>';
+  }).join('');
   document.getElementById('adjust-notify').checked = false;
   adjRecalc();
   document.getElementById('adjust-modal').style.display = 'flex';
@@ -2586,6 +2612,107 @@ function renderFulfillmentReports_(data, VARS, useLocs){
         '<div class="filter-hint" style="margin-top:8px">Pickup % = picked-up orders ÷ paid orders at that location.</div>';
     }
   }
+}
+
+/* ===== Edit contact / Resend / Duplicate / Copy / Boxes-left ===== */
+var _contactOrderId = null;
+function openContactModal(orderId){
+  var o = findOrderById(orderId);
+  if(!o){ toast('Order not found \u2014 hit Refresh and try again.', true); return; }
+  _contactOrderId = orderId;
+  document.getElementById('contact-modal-order').textContent = '#' + orderId;
+  document.getElementById('contact-name').value = o.customerName || '';
+  document.getElementById('contact-phone').value = o.phone || '';
+  document.getElementById('contact-whatsapp').value = o.whatsapp || o.phone || '';
+  document.getElementById('contact-email').value = o.email || '';
+  document.getElementById('contact-modal').style.display = 'flex';
+}
+function closeContactModal(){ document.getElementById('contact-modal').style.display='none'; _contactOrderId=null; }
+async function saveContact(){
+  var orderId=_contactOrderId; if(!orderId) return;
+  var name=(document.getElementById('contact-name').value||'').trim();
+  if(!name){ toast('Name cannot be empty', true); return; }
+  var params={ orderId:orderId, name:name,
+    phone:(document.getElementById('contact-phone').value||'').trim(),
+    whatsapp:(document.getElementById('contact-whatsapp').value||'').trim(),
+    email:(document.getElementById('contact-email').value||'').trim() };
+  closeContactModal(); toast('Updating contact\u2026');
+  var r=await api('editContact', params);
+  if(r.status==='ok'){ toast('\u2713 '+(r.message||'Contact updated')); refreshAll(); }
+  else { toast('\u274c '+(r.message||'Update failed'), true); }
+}
+async function resendConfirmation(orderId){
+  var o=findOrderById(orderId);
+  if(o && !o.email){ toast('No email on file \u2014 add one with \U0001f464 Contact first.', true); return; }
+  if(!confirm('Resend the order confirmation email to '+((o&&o.email)||'this customer')+'?')) return;
+  toast('Sending\u2026');
+  var r=await api('resendConfirmation', {orderId:orderId});
+  if(r.status==='ok'){ toast('\u2713 '+(r.message||'Email sent')); }
+  else { toast('\u274c '+(r.message||'Send failed'), true); }
+}
+async function duplicateOrder(orderId){
+  if(!confirm('Create a new, UNPAID copy of order #'+orderId+'?\n(Same customer, items & location.)')) return;
+  toast('Duplicating\u2026');
+  var r=await api('duplicateOrder', {orderId:orderId});
+  if(r.status==='ok'){ toast('\u2713 '+(r.message||'Duplicated')); refreshAll(); }
+  else { toast('\u274c '+(r.message||'Duplicate failed'), true); }
+}
+function copyOrderForWa(orderId){
+  var o=findOrderById(orderId);
+  if(!o){ toast('Order not found \u2014 hit Refresh.', true); return; }
+  var items=[];
+  if(Number(o.bangan)>0)  items.push(o.bangan+' Banganapalli');
+  if(Number(o.rasalu)>0)  items.push(o.rasalu+' Cheruku Rasalu');
+  if(Number(o.himayat)>0) items.push(o.himayat+' Himayat');
+  if(Number(o.kesar)>0)   items.push(o.kesar+' Kesar');
+  var paid=o.paymentReceived ? 'PAID' : 'UNPAID';
+  var txt='\U0001f96d TRU Mangoes \u2014 Order #'+o.orderId+'\n'+
+    (o.customerName||'')+'\n'+
+    (items.join(', ')||'(no items)')+'\n'+
+    'Total: $'+(Number(o.totalAmount)||0)+' ('+paid+')\n'+
+    'Pickup: '+(o.pickupLocation||o.city||'TBD');
+  function done(){ toast('\u2713 Order summary copied'); }
+  function fallback(){
+    try{
+      var ta=document.createElement('textarea'); ta.value=txt;
+      ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta);
+      ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+    }catch(e){ toast('Copy not supported on this browser.', true); }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done).catch(fallback);
+  } else { fallback(); }
+}
+
+/* Boxes remaining vs cap. Caps mirror Code.gs CONFIG.VARIETY_CAPS \u2014 keep in sync. */
+var VARIETY_CAPS_UI   = { banganapalli:640, rasalu:40, himayat:40, kesar:0 };
+var VARIETY_LABELS_UI = { banganapalli:'Banganapalli', rasalu:'Cheruku Rasalu', himayat:'Himayat', kesar:'Kesar' };
+function renderStockLeft_(orders){
+  var el=document.getElementById('dashboard-stockleft');
+  if(!el) return;
+  var rel=function(o){ return ['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase()); };
+  var placed={ banganapalli:0, rasalu:0, himayat:0, kesar:0 };
+  (orders||[]).forEach(function(o){
+    if(rel(o)) return;
+    placed.banganapalli += Number(o.bangan)||0;
+    placed.rasalu       += Number(o.rasalu)||0;
+    placed.himayat      += Number(o.himayat)||0;
+    placed.kesar        += Number(o.kesar)||0;
+  });
+  var keys=['banganapalli','rasalu','himayat','kesar'].filter(function(k){ return VARIETY_CAPS_UI[k]>0; });
+  el.innerHTML = keys.map(function(k){
+    var cap=VARIETY_CAPS_UI[k], used=placed[k], left=Math.max(0,cap-used);
+    var pct=cap?Math.min(100,Math.round(used*100/cap)):0;
+    var color=left===0?'#c0392b':(left<=cap*0.15?'#C8973A':'#1F4A2C');
+    return '<div style="margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px">'+
+        '<span>'+VARIETY_LABELS_UI[k]+'</span>'+
+        '<span style="font-weight:700;color:'+color+'">'+(left===0?'SOLD OUT':left+' left')+
+          ' <span style="color:#999;font-weight:400;font-size:12px">of '+cap+'</span></span>'+
+      '</div>'+
+      '<div style="background:#eee;border-radius:6px;height:9px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+color+'"></div></div>'+
+    '</div>';
+  }).join('') || '<div style="color:#999">No caps configured.</div>';
 }
 
 /* ===== Auto-refresh with visible countdown (silent + non-disruptive) ===== */
