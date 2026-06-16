@@ -582,7 +582,7 @@ let userRole = null;
 let userName = null;
 let userPw = null;
 let canOverride = false;
-let cachedData = {pending:[], paid:[], orders:[]};
+let cachedData = {pending:[], paid:[], orders:[], caps:null};
 
 // ============ LOGIN ============
 let _silentRetries = 0;
@@ -775,6 +775,21 @@ async function refreshAll(silent) {
       updateCount('pending', cachedData.pending.length);
       updateCount('paid',    cachedData.paid.length);
       updateCount('orders',  cachedData.orders.length);
+      // Pull caps live from the same backend Code.gs serves, so the
+      // "Boxes Remaining" panel can never drift out of sync with the
+      // deployed VARIETY_CAPS. Falls back to defaults if unreachable.
+      try {
+        const av = await api('availability');
+        if (av && av.status === 'ok' && av.data && av.data.caps) {
+          var c = av.data.caps;
+          cachedData.caps = {
+            banganapalli: Number(c.bangan),
+            rasalu:       Number(c.rasalu),
+            himayat:      Number(c.himayat),
+            kesar:        Number(c.kesar)
+          };
+        }
+      } catch (e) { /* keep last-known / fallback caps */ }
       renderDashboardFromOrders(r.data); try{renderStockLeft_(r.data);}catch(e){}
       if (!silent) toast('✓ Data refreshed · ' + r.data.length + ' orders');
       _setLastUpdated();
@@ -2691,11 +2706,25 @@ function copyOrderForWa(orderId){
 }
 
 /* Boxes remaining vs cap. Caps mirror Code.gs CONFIG.VARIETY_CAPS \u2014 keep in sync. */
-var VARIETY_CAPS_UI   = { banganapalli:640, rasalu:40, himayat:40, kesar:0 };
+/* Caps come LIVE from the backend (action=availability), cached in
+ * cachedData.caps by refreshAll(). The fallback below is used only when the
+ * backend hasn't answered yet, so this panel can never go stale against the
+ * deployed Code.gs CONFIG.VARIETY_CAPS the way it did before. */
+var VARIETY_CAPS_FALLBACK = { banganapalli:320, rasalu:0, himayat:35, kesar:0 };
 var VARIETY_LABELS_UI = { banganapalli:'Banganapalli', rasalu:'Cheruku Rasalu', himayat:'Himayat', kesar:'Kesar' };
+function liveCaps_(){
+  var live = cachedData && cachedData.caps;
+  var out = {};
+  ['banganapalli','rasalu','himayat','kesar'].forEach(function(k){
+    var v = live ? Number(live[k]) : NaN;
+    out[k] = isFinite(v) ? v : VARIETY_CAPS_FALLBACK[k];
+  });
+  return out;
+}
 function renderStockLeft_(orders){
   var el=document.getElementById('dashboard-stockleft');
   if(!el) return;
+  var CAPS=liveCaps_();
   var rel=function(o){ return ['cancelled','canceled','expired'].includes(String(o.paymentStatus||'').toLowerCase()); };
   var placed={ banganapalli:0, rasalu:0, himayat:0, kesar:0 };
   (orders||[]).forEach(function(o){
@@ -2705,9 +2734,9 @@ function renderStockLeft_(orders){
     placed.himayat      += Number(o.himayat)||0;
     placed.kesar        += Number(o.kesar)||0;
   });
-  var keys=['banganapalli','rasalu','himayat','kesar'].filter(function(k){ return VARIETY_CAPS_UI[k]>0; });
+  var keys=['banganapalli','rasalu','himayat','kesar'].filter(function(k){ return CAPS[k]>0; });
   el.innerHTML = keys.map(function(k){
-    var cap=VARIETY_CAPS_UI[k], used=placed[k], left=Math.max(0,cap-used);
+    var cap=CAPS[k], used=placed[k], left=Math.max(0,cap-used);
     var pct=cap?Math.min(100,Math.round(used*100/cap)):0;
     var color=left===0?'#c0392b':(left<=cap*0.15?'#C8973A':'#1F4A2C');
     return '<div style="margin-bottom:10px">'+
